@@ -1,0 +1,27 @@
+{% extends "sites/_base.html" %}
+{% import "sites/_macros.html" as m %}
+{% block style %}
+.nf { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 48px 24px; text-align: center; }
+.nf-inner { max-width: 440px; }
+.nf-code { font-size: clamp(4.5rem, 12vw, 7rem); font-weight: 800; letter-spacing: -.05em; line-height: 1; color: var(--accent); margin-bottom: 18px; }
+.nf h1 { font-size: 1.5rem; letter-spacing: -.015em; margin: 0 0 10px; }
+.nf p { color: var(--text-2); margin: 0 0 28px; }
+.nf-home {
+  display: inline-flex; align-items: center; gap: 9px; padding: 10px 18px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 600; font-size: .95rem;
+  box-shadow: var(--shadow-sm); transition: transform .15s ease, box-shadow .15s ease;
+}
+.nf-home:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.nf .site-footer { margin-top: 56px; }
+{% endblock %}
+{% block body %}
+<main class="nf">
+<div class="nf-inner">
+<div class="nf-code" aria-hidden="true">404</div>
+<h1>This page could not be found</h1>
+<p>It may have been moved, renamed or unpublished.</p>
+<a class="nf-home" href="{{ site.home }}">{{ site.icon }}<span>Back to {{ site.title }}</span></a>
+{{ m.footer(site, made_with) }}
+</div>
+</main>
+{% endblock %}

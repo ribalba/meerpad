@@ -1,0 +1,30 @@
+# --- secrets & local configuration -------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+
+# --- python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+.venv-test/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- runtime -----------------------------------------------------------------
+data/
+uploads/
+backups/
+*.log
+
+# --- node / electron ---------------------------------------------------------
+node_modules/
+electron/dist/
+
+# --- editors / OS ------------------------------------------------------------
+.DS_Store
+.idea/
+*.swp

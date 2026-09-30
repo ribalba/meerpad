@@ -1,0 +1,75 @@
+{% extends "sites/_base.html" %}
+{% import "sites/_macros.html" as m %}
+{# Minimal: one calm centered column, a slim top bar, breadcrumbs on subpages. #}
+{% block style %}
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner { max-width: 1120px; margin: 0 auto; padding: 0 24px; height: 54px; display: flex; align-items: center; gap: 24px; }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 0 1 auto; font-weight: 650; font-size: .95rem; letter-spacing: -.005em; color: var(--text); text-decoration: none; }
+.brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topnav { margin-left: auto; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.topnav::-webkit-scrollbar { display: none; }
+.topnav a { color: var(--text-2); text-decoration: none; font-size: .88rem; padding: 6px 11px; border-radius: 7px; white-space: nowrap; transition: background .15s, color .15s; }
+.topnav a:hover { color: var(--text); background: var(--bg-hover); }
+.topnav a.active { color: var(--text); background: var(--bg-hover); font-weight: 550; }
+.cover { height: clamp(170px, 28vw, 290px); }
+.wrap { max-width: 768px; margin: 0 auto; padding: 56px 28px 24px; }
+.full-width .wrap { max-width: 1140px; }
+.full-width .site-footer { width: min(1084px, calc(100% - 56px)); }
+.wrap.pull-icon { padding-top: 0; }
+.pull-icon .page-icon-wrap { margin-top: -46px; position: relative; }
+.wrap.after-cover { padding-top: 40px; }
+.page-head { margin-bottom: 28px; }
+.crumb-row { max-width: 768px; margin: 0 auto; padding: 16px 28px 0; }
+.full-width .crumb-row { max-width: 1140px; }
+.crumb-row .crumbs { margin: 0 0 16px; }
+.crumb-row + .wrap { padding-top: 28px; }
+.page-title { font-size: clamp(2.1rem, 1.7rem + 1.5vw, 2.75rem); }
+.subpages { margin-top: 56px; }
+.site-footer { width: min(712px, calc(100% - 56px)); margin: 64px auto 0; padding: 28px 0 48px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.site-footer .footer-text { margin: 0; }
+@media (max-width: 640px) {
+  .topbar-inner { padding: 0 16px; gap: 12px; height: 50px; }
+  .brand { max-width: 55%; }
+  /* The links scroll sideways; the fade says there is more. */
+  .topnav { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 16px; }
+  .wrap { padding: 32px 18px 16px; }
+  .crumb-row { padding: 12px 18px 0; }
+  .crumb-row + .wrap { padding-top: 20px; }
+  .wrap.after-cover { padding-top: 28px; }
+  .page-icon { font-size: 56px; }
+  .pull-icon .page-icon-wrap { margin-top: -36px; }
+  .site-footer { width: calc(100% - 36px); padding: 24px 0 40px; margin-top: 48px; }
+}
+{% endblock %}
+{% block body %}
+<header class="topbar">
+<div class="topbar-inner">
+<a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
+{% if top_nav %}
+<nav class="topnav" aria-label="Main">
+{% for it in top_nav %}
+<a href="{{ it.path }}"{% if it.id == section %} class="active" aria-current="page"{% endif %}>{{ it.title }}</a>
+{% endfor %}
+</nav>
+{% endif %}
+</div>
+</header>
+{% if breadcrumbs %}
+<div class="crumb-row">{{ m.crumbs(breadcrumbs, page) }}</div>
+{% endif %}
+{{ m.cover(page.cover) }}
+<main class="wrap{% if page.cover and page.icon %} pull-icon{% elif page.cover %} after-cover{% endif %}">
+<article>
+{{ m.page_head(page) }}
+{{ page.properties }}
+<div class="page-body">{{ content }}</div>
+{{ m.page_cards(children) }}
+</article>
+</main>
+{{ m.footer(site, made_with) }}
+{% endblock %}

@@ -1,0 +1,51 @@
+{
+  "name": "meerpad-desktop",
+  "productName": "meerpad",
+  "version": "0.1.0",
+  "description": "Desktop wrapper for meerpad: notes, docs and wikis that are yours.",
+  "main": "main.js",
+  "desktopName": "meerpad.desktop",
+  "author": {
+    "name": "Didi Hoffmann",
+    "email": "didi@ribalba.de"
+  },
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://meerpad.com",
+  "scripts": {
+    "start": "electron . --class=meerpad",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.meerpad.desktop",
+    "productName": "meerpad",
+    "directories": { "buildResources": "build", "output": "dist" },
+    "files": ["main.js", "preload.js", "package.json", "build/icon.png"],
+    "protocols": [
+      { "name": "meerpad", "schemes": ["meerpad"] }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"],
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "synopsis": "Desktop wrapper for meerpad.",
+      "syncDesktopName": true,
+      "executableName": "meerpad",
+      "desktop": {
+        "entry": { "StartupWMClass": "meerpad" }
+      }
+    },
+    "win": {
+      "target": ["nsis"]
+    }
+  }
+}

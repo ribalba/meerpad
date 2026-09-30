@@ -1,0 +1,185 @@
+{% extends "sites/_base.html" %}
+{% import "sites/_macros.html" as m %}
+{# Landing: a big hero built from the root page's cover, icon, title and first
+   paragraph; subpages become feature cards; the rest of the page follows.
+   Subpages get the same navigation bar and a compact banner. #}
+{% block style %}
+.land-nav { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 84%, transparent); -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px); border-bottom: 1px solid var(--border); }
+.land-nav-inner { max-width: 1180px; margin: 0 auto; height: 64px; padding: 0 28px; display: flex; align-items: center; gap: 24px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 700; font-size: 1.02rem; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
+.brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links { margin-left: auto; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.links::-webkit-scrollbar { display: none; }
+.links a { color: var(--text-2); text-decoration: none; font-size: .92rem; font-weight: 500; padding: 7px 12px; border-radius: 8px; white-space: nowrap; transition: color .15s, background .15s; }
+.links a:hover { color: var(--text); background: var(--bg-hover); }
+.links a.active { color: var(--accent); }
+.arrow { width: 15px; height: 15px; flex: none; }
+
+.hero { position: relative; overflow: hidden; isolation: isolate; }
+.hero-bg { position: absolute; inset: 0; z-index: -2; }
+.hero-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hero.media::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(8, 10, 14, .30) 0%, rgba(8, 10, 14, .52) 60%, rgba(8, 10, 14, .66) 100%); }
+.hero.plain .hero-bg {
+  background:
+    radial-gradient(60% 70% at 15% 10%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 60% at 90% 30%, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 70%),
+    var(--bg);
+}
+.hero-inner { max-width: 1180px; margin: 0 auto; padding: clamp(80px, 12vw, 150px) 28px clamp(72px, 10vw, 128px); }
+.hero.media .hero-inner { color: #fff; }
+.hero-icon { font-size: 64px; line-height: 1; margin-bottom: 22px; }
+.hero-icon img.page-icon { width: 72px; height: 72px; border-radius: 14px; }
+.hero-title { font-size: clamp(2.6rem, 1.6rem + 4.6vw, 5.2rem); line-height: 1.02; letter-spacing: -.035em; font-weight: 800; margin: 0; max-width: 15ch; overflow-wrap: anywhere; }
+.hero.media .hero-title { text-shadow: 0 2px 30px rgba(0, 0, 0, .25); }
+.hero-lead { font-size: clamp(1.1rem, 1rem + .5vw, 1.35rem); line-height: 1.55; max-width: 38rem; margin: 24px 0 0; color: var(--text-2); }
+.hero.media .hero-lead { color: rgba(255, 255, 255, .88); }
+.hero-lead a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: .98rem; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease, background .15s; }
+.btn:hover { transform: translateY(-1px); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--accent) 80%, transparent); }
+.btn.ghost { color: var(--text); background: var(--bg-hover); }
+.hero.media .btn.ghost { color: #fff; background: rgba(255, 255, 255, .16); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+
+.features { max-width: 1180px; margin: 0 auto; padding: 84px 28px 20px; scroll-margin-top: 64px; }
+.features .section-label { margin-bottom: 22px; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; list-style: none; margin: 0; padding: 0; }
+.feature { position: relative; display: flex; flex-direction: column; height: 100%; padding: 26px 26px 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg-elev); color: var(--text); text-decoration: none; transition: transform .2s ease, box-shadow .2s ease, border-color .2s; overflow: hidden; }
+.feature:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: transparent; }
+.feature-top { height: 110px; margin: -26px -26px 22px; background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft)); overflow: hidden; }
+.feature-top img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.feature-icon { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 13px; margin-bottom: 18px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 26px; line-height: 1; }
+.feature-icon img { width: 30px; height: 30px; }
+.feature-icon .glyph { width: 24px; height: 24px; color: var(--accent); }
+.feature-top + .feature-icon { margin-top: -47px; position: relative; background: var(--bg-elev); box-shadow: var(--shadow); }
+.feature h3 { font-size: 1.2rem; letter-spacing: -.012em; margin: 0 0 8px; line-height: 1.3; }
+.feature p { margin: 0 0 18px; color: var(--text-2); line-height: 1.6; font-size: .96rem; flex: 1; }
+.feature .more { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; font-size: .9rem; margin-top: auto; }
+.feature:hover .more .arrow { transform: translateX(3px); }
+.feature .more .arrow { transition: transform .2s ease; }
+
+.land-body { max-width: 760px; margin: 0 auto; padding: 72px 28px 0; }
+.full-width .land-body { max-width: 1120px; }
+.land-body .page-body { font-size: 17px; }
+
+.sub-banner { position: relative; height: clamp(150px, 22vw, 240px); background: var(--bg-soft); overflow: hidden; }
+.sub-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sub-page { max-width: 760px; margin: 0 auto; padding: 48px 28px 0; }
+.full-width .sub-page { max-width: 1120px; }
+.sub-page.pull-icon { padding-top: 0; }
+.sub-page.pull-icon .page-icon-wrap { margin-top: -44px; position: relative; }
+.crumb-row { max-width: 760px; margin: 0 auto; padding: 16px 28px 0; }
+.full-width .crumb-row { max-width: 1120px; }
+.crumb-row .crumbs { margin: 0 0 16px; }
+.crumb-row + .sub-page { padding-top: 28px; }
+.sub-page .page-head { margin-bottom: 28px; }
+.sub-page .subpages { margin-top: 56px; }
+
+.site-footer { width: min(1124px, calc(100% - 56px)); margin: 96px auto 0; padding: 30px 0 52px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.site-footer .footer-text { margin: 0; }
+
+@media (max-width: 640px) {
+  .land-nav-inner { padding: 0 16px; height: 56px; gap: 10px; }
+  .links a { padding: 6px 8px; font-size: .86rem; }
+  .brand { max-width: 55%; }
+  .links { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 16px; }
+  .hero-inner { padding: 64px 20px 60px; }
+  .hero-icon { font-size: 48px; margin-bottom: 16px; }
+  .hero-cta { margin-top: 28px; }
+  .btn { padding: 11px 18px; font-size: .94rem; }
+  .features { padding: 56px 18px 8px; }
+  .feature-grid { grid-template-columns: 1fr; gap: 14px; }
+  .feature { padding: 22px; border-radius: 16px; }
+  .feature-top { margin: -22px -22px 20px; }
+  .land-body { padding: 52px 18px 0; }
+  .sub-page { padding: 32px 18px 0; }
+  .crumb-row { padding: 12px 18px 0; }
+  .sub-page.pull-icon .page-icon-wrap { margin-top: -36px; }
+  .page-icon { font-size: 56px; }
+  .site-footer { width: calc(100% - 36px); padding: 26px 0 44px; margin-top: 64px; }
+}
+{% endblock %}
+{% block body %}
+<header class="land-nav">
+<div class="land-nav-inner">
+<a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
+{% if top_nav %}
+<nav class="links" aria-label="Main">
+{% for it in top_nav %}
+<a href="{{ it.path }}"{% if it.id == section %} class="active" aria-current="page"{% endif %}>{{ it.title }}</a>
+{% endfor %}
+</nav>
+{% endif %}
+</div>
+</header>
+{% if page.is_root %}
+<main>
+<section class="hero {{ 'media' if page.cover else 'plain' }}">
+<div class="hero-bg"{% if page.cover and page.cover.kind == "gradient" %} style="background: {{ page.cover.css }}"{% endif %}>
+{% if page.cover and page.cover.kind == "image" %}
+<img src="{{ page.cover.url }}" alt="" fetchpriority="high">
+{% endif %}
+</div>
+<div class="hero-inner">
+{% if page.icon %}
+<div class="hero-icon">{{ page.icon }}</div>
+{% endif %}
+<h1 class="hero-title">{{ page.title }}</h1>
+{% if lead %}
+<p class="hero-lead">{{ lead }}</p>
+{% endif %}
+{% if features %}
+<div class="hero-cta">
+<a class="btn primary" href="{{ features[0].path }}">{{ features[0].title }}{{ m.arrow() }}</a>
+{% if features|length > 1 %}
+<a class="btn ghost" href="#features">See everything</a>
+{% endif %}
+</div>
+{% endif %}
+</div>
+</section>
+{% if features %}
+<section class="features" id="features" aria-label="Pages">
+<ul class="feature-grid">
+{% for f in features %}
+<li>
+<a class="feature" href="{{ f.path }}">
+{% if f.cover %}
+<div class="feature-top"{% if f.cover.kind == "gradient" %} style="background: {{ f.cover.css }}"{% endif %}>{% if f.cover.kind == "image" %}<img src="{{ f.cover.url }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
+{% endif %}
+<span class="feature-icon">{% if f.icon %}{{ f.icon }}{% else %}<svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9.5M8.5 3.5 13 8l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>{% endif %}</span>
+<h3>{{ f.title }}</h3>
+<p>{{ f.excerpt }}</p>
+<span class="more">Learn more{{ m.arrow() }}</span>
+</a>
+</li>
+{% endfor %}
+</ul>
+</section>
+{% endif %}
+{% if content %}
+<section class="land-body"><div class="page-body">{{ content }}</div></section>
+{% endif %}
+</main>
+{% else %}
+{% if breadcrumbs|length > 1 %}
+<div class="crumb-row">{{ m.crumbs(breadcrumbs, page) }}</div>
+{% endif %}
+{% if page.cover %}
+{% if page.cover.kind == "image" %}
+<div class="sub-banner"><img src="{{ page.cover.url }}" alt="" fetchpriority="high"></div>
+{% else %}
+<div class="sub-banner" style="background: {{ page.cover.css }}"></div>
+{% endif %}
+{% endif %}
+<main class="sub-page{% if page.cover and page.icon %} pull-icon{% endif %}">
+<article>
+{{ m.page_head(page) }}
+{{ page.properties }}
+<div class="page-body">{{ content }}</div>
+{{ m.page_cards(children) }}
+</article>
+</main>
+{% endif %}
+{{ m.footer(site, made_with) }}
+{% endblock %}

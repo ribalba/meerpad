@@ -1,0 +1,177 @@
+{% extends "sites/_base.html" %}
+{% import "sites/_macros.html" as m %}
+{# Blog: the home page lists the subpages as posts (newest first, the latest
+   one featured); a post is an editorial column with date, title and cover. #}
+{% macro post_card(p, featured=False) %}
+<a class="post-card{% if featured %} featured{% endif %}" href="{{ p.path }}">
+<div class="pc-cover"{% if p.cover and p.cover.kind == "gradient" %} style="background: {{ p.cover.css }}"{% endif %}>
+{% if p.cover and p.cover.kind == "image" %}
+<img src="{{ p.cover.url }}" alt="" loading="{{ 'eager' if featured else 'lazy' }}" decoding="async">
+{% elif not p.cover %}
+<span class="pc-placeholder">{% if p.icon %}{{ p.icon }}{% else %}<span class="pc-initial">{{ p.title[:1] }}</span>{% endif %}</span>
+{% endif %}
+</div>
+<div class="pc-body">
+{% if p.date %}
+<time class="pc-date" datetime="{{ p.date_iso }}">{{ p.date }}</time>
+{% endif %}
+<h3 class="pc-title">{{ p.title }}</h3>
+{% if p.excerpt %}
+<p class="pc-excerpt">{{ p.excerpt }}</p>
+{% endif %}
+<span class="pc-more">Read post{{ m.arrow() }}</span>
+</div>
+</a>
+{% endmacro %}
+{% block style %}
+.blog-top { border-bottom: 1px solid var(--border); }
+.blog-top-inner { max-width: 1120px; margin: 0 auto; height: 60px; padding: 0 28px; display: flex; align-items: center; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; font-family: var(--font-serif); font-weight: 700; font-size: 1.2rem; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
+.brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.all-posts { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); text-decoration: none; font-size: .9rem; padding: 6px 10px; border-radius: 7px; white-space: nowrap; }
+.all-posts:hover { background: var(--bg-hover); color: var(--text); }
+.arrow { width: 14px; height: 14px; flex: none; }
+
+.blog-hero { max-width: 1120px; margin: 0 auto; padding: 72px 28px 28px; }
+.blog-hero h1 { font-family: var(--font-serif); font-size: clamp(2.5rem, 1.8rem + 3vw, 4rem); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; max-width: 16ch; }
+.blog-hero .desc { font-size: 1.2rem; line-height: 1.55; color: var(--text-2); max-width: 40rem; margin: 18px 0 0; }
+.blog-intro { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+.blog-intro .page-body { max-width: 680px; }
+
+.posts { max-width: 1120px; margin: 0 auto; padding: 40px 28px 16px; }
+.post-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 44px 32px; list-style: none; margin: 0; padding: 0; }
+.post-grid > li.first { grid-column: 1 / -1; }
+.post-card { display: flex; flex-direction: column; gap: 16px; color: var(--text); text-decoration: none; }
+.pc-cover { position: relative; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden; background: color-mix(in srgb, var(--accent) 9%, var(--bg-soft)); display: grid; place-items: center; }
+.pc-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .5s cubic-bezier(.2, .7, .2, 1); }
+.post-card:hover .pc-cover img { transform: scale(1.035); }
+.pc-placeholder { font-size: 54px; line-height: 1; }
+.pc-placeholder img { width: 60px; height: 60px; }
+.pc-initial { font-family: var(--font-serif); font-size: 64px; font-weight: 700; color: color-mix(in srgb, var(--accent) 55%, var(--text-3)); }
+.pc-body { display: flex; flex-direction: column; gap: 8px; }
+.pc-date { font-size: .78rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+.pc-title { font-family: var(--font-serif); font-size: 1.45rem; line-height: 1.22; letter-spacing: -.012em; margin: 0; font-weight: 700; transition: color .15s; }
+.post-card:hover .pc-title { color: var(--accent); }
+.pc-excerpt { margin: 0; color: var(--text-2); line-height: 1.6; font-size: .98rem; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pc-more { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem; font-weight: 600; color: var(--accent); margin-top: 2px; }
+.post-card.featured { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.post-card.featured .pc-cover { aspect-ratio: 16 / 10; }
+.post-card.featured .pc-title { font-size: clamp(1.8rem, 1.3rem + 1.4vw, 2.5rem); line-height: 1.12; }
+.post-card.featured .pc-excerpt { font-size: 1.08rem; -webkit-line-clamp: 4; line-clamp: 4; }
+.empty-blog { color: var(--text-3); padding: 40px 0; }
+
+.post { max-width: 1120px; margin: 0 auto; padding: 64px 28px 0; }
+.post-head { max-width: 720px; margin: 0 auto; text-align: center; }
+.post-meta { display: flex; justify-content: center; align-items: center; gap: 10px; font-size: .82rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 18px; }
+.post-head .page-icon-wrap { margin-bottom: 14px; }
+.post-head .page-icon { font-size: 52px; }
+.post-title { font-family: var(--font-serif); font-size: clamp(2.2rem, 1.6rem + 2.6vw, 3.4rem); line-height: 1.1; letter-spacing: -.022em; margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.post-cover { margin: 44px auto 0; max-width: 1040px; aspect-ratio: 2 / 1; border-radius: 18px; overflow: hidden; background: var(--bg-soft); }
+.post-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.post-body { max-width: 680px; margin: 48px auto 0; }
+.full-width .post-body { max-width: 1000px; }
+.post-body .page-body { font-family: var(--font-serif); font-size: 19.5px; line-height: 1.75; }
+.post-body .page-body .heading, .post-body .page-body table, .post-body .page-body .database, .post-body .page-body figcaption, .post-body .page-body .callout, .post-body .page-body .bookmark { font-family: var(--font-sans); }
+.post-body .page-body .heading { letter-spacing: -.015em; }
+.post-body .page-body figure.image { margin: 2em auto; }
+.post-body .props { font-family: var(--font-sans); }
+.post-body .subpages { margin-top: 48px; }
+
+.more { width: min(1064px, calc(100% - 56px)); margin: 88px auto 0; padding: 40px 0 0; border-top: 1px solid var(--border); }
+.more .section-label { margin-bottom: 26px; }
+.more .post-grid { gap: 32px; }
+.more .pc-title { font-size: 1.2rem; }
+
+.site-footer { width: min(1064px, calc(100% - 56px)); margin: 88px auto 0; padding: 30px 0 52px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.more + .site-footer { margin-top: 64px; }
+.site-footer .footer-text { margin: 0; }
+
+@media (max-width: 900px) {
+  .post-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 22px; }
+  .post-card.featured { grid-template-columns: 1fr; gap: 18px; }
+}
+@media (max-width: 600px) {
+  .blog-top-inner { padding: 0 18px; height: 54px; }
+  .blog-hero { padding: 44px 18px 16px; }
+  .blog-hero .desc { font-size: 1.05rem; }
+  .blog-intro, .posts { padding-left: 18px; padding-right: 18px; }
+  .more { width: calc(100% - 36px); }
+  .post-grid { grid-template-columns: 1fr; gap: 36px; }
+  .post { padding: 40px 18px 0; }
+  .post-cover { margin-top: 30px; border-radius: 12px; }
+  .post-body { margin-top: 32px; }
+  .post-body .page-body { font-size: 18px; }
+  .site-footer { width: calc(100% - 36px); padding: 26px 0 44px; margin-top: 64px; }
+}
+{% endblock %}
+{% block body %}
+<header class="blog-top">
+<div class="blog-top-inner">
+<a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
+{% if not page.is_root %}
+<a class="all-posts" href="{{ site.home }}">{{ m.arrow("left") }}All posts</a>
+{% endif %}
+</div>
+</header>
+{% if page.is_root %}
+<main>
+<section class="blog-hero">
+<h1>{{ page.title }}</h1>
+{% if site.description %}
+<p class="desc">{{ site.description }}</p>
+{% endif %}
+</section>
+{% if content %}
+<section class="blog-intro"><div class="page-body">{{ content }}</div></section>
+{% endif %}
+<section class="posts" aria-label="Posts">
+{% if posts %}
+<ul class="post-grid">
+{% for p in posts %}
+<li{% if loop.first %} class="first"{% endif %}>{{ post_card(p, loop.first) }}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="empty-blog">No posts yet. Add a subpage to publish the first one.</p>
+{% endif %}
+</section>
+</main>
+{% else %}
+<main>
+<article class="post">
+<header class="post-head">
+{% if page.date %}
+<div class="post-meta"><time datetime="{{ page.date_iso }}">{{ page.date }}</time></div>
+{% endif %}
+{% if page.icon %}
+<div class="page-icon-wrap">{{ page.icon }}</div>
+{% endif %}
+<h1 class="post-title">{{ page.title }}</h1>
+</header>
+{% if page.cover %}
+{% if page.cover.kind == "image" %}
+<figure class="post-cover"><img src="{{ page.cover.url }}" alt="" fetchpriority="high"></figure>
+{% else %}
+<div class="post-cover" style="background: {{ page.cover.css }}"></div>
+{% endif %}
+{% endif %}
+<div class="post-body">
+{{ page.properties }}
+<div class="page-body">{{ content }}</div>
+{{ m.page_cards(children) }}
+</div>
+</article>
+{% if more_posts %}
+<section class="more" aria-label="More posts">
+<h2 class="section-label">Keep reading</h2>
+<ul class="post-grid">
+{% for p in more_posts %}
+<li>{{ post_card(p) }}</li>
+{% endfor %}
+</ul>
+</section>
+{% endif %}
+</main>
+{% endif %}
+{{ m.footer(site, made_with) }}
+{% endblock %}

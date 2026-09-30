@@ -1,0 +1,67 @@
+# Dependency updates, opened as pull requests (meerpic's file, for one
+# requirements file instead of two).
+#
+# This file turns on *version* updates: a weekly pass that notices a pin has
+# fallen behind and offers the bump. Security updates are a separate switch, in
+# Settings -> Code security, and they are the half that matters most here:
+# they open a PR the day an advisory lands rather than waiting for Monday.
+# Turn both on; this file cannot.
+#
+# Minor and patch updates are grouped into one pull request per ecosystem,
+# because twenty separate ones a week is how a project learns to ignore them.
+# Majors are deliberately left ungrouped: they arrive alone, because they are
+# the ones that need reading rather than merging (a Starlette major is exactly
+# the kind requirements.txt pins directly for a reason).
+
+version: 2
+
+updates:
+  # --- Python ---------------------------------------------------------------
+  - package-ecosystem: "pip"
+    directory: "/"                      # requirements.txt: the server
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "python"]
+    commit-message:
+      prefix: "deps"
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Electron shell -------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/electron"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "electron"]
+    commit-message:
+      prefix: "deps"
+    groups:
+      electron-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Base images ----------------------------------------------------------
+  # The FROM line only: python:3.14-slim. A major here is a runtime change,
+  # which is exactly why it should arrive as its own pull request. postgres:18
+  # in the compose files is left alone on purpose: its minor releases arrive
+  # with every pull of the floating tag, and a major needs a pg_upgrade of the
+  # volume, not a merged pull request.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: "deps"
+    groups:
+      base-images-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

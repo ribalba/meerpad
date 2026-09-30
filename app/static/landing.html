@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>meerpad: notes, docs and wikis that are yours</title>
+  <meta name="description" content="meerpad is an open-source, offline-first home for notes, docs and wikis: pages made of blocks like Notion, Markdown as you type, workspaces for work, house and farm, databases, share links, and any page published as a website. Import from Notion, databases included. Hosted at meerpad.com, or run it yourself." />
+  <meta name="theme-color" content="#1d6ff2" />
+  <link rel="canonical" href="https://meerpad.com/" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/img/favicon-64.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/favicon-180.png" />
+
+  <!-- Link previews (chat apps, Mastodon, LinkedIn). -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="meerpad" />
+  <meta property="og:url" content="https://meerpad.com/" />
+  <meta property="og:title" content="meerpad: notes, docs and wikis that are yours" />
+  <meta property="og:description" content="Pages made of blocks, Markdown as you type, databases, share links and publishing to your own domain. Offline first, open source, and it imports your Notion workspace." />
+  <meta property="og:image" content="https://meerpad.com/static/img/og.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- For language models and other machine readers: the plain-text summary
+       (llmstxt.org) and the same facts as schema.org data. Keep both in step
+       with the page and with llms.txt, as on meerail.com and meerpic.com. -->
+  <link rel="alternate" type="text/plain" href="/static/llms.txt" title="meerpad in plain text, for LLMs" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "meerpad",
+    "url": "https://meerpad.com/",
+    "description": "An open-source (AGPL-3.0), offline-first app for notes, docs and wikis in the style of Notion: pages made of blocks in a page tree, grouped into workspaces, with databases, share links, and any page published as a website at meerpad.com/v/your-name or on your own domain. It keeps a copy of your pages in the browser, so it opens and edits without a network and syncs when it is back. It imports Notion's Markdown and CSV export, databases included. Hosted at meerpad.com, or self-hosted with Docker and PostgreSQL.",
+    "applicationCategory": "BusinessApplication",
+    "applicationSubCategory": "Notes and wiki",
+    "operatingSystem": "Any (web browser); desktop app for Linux, macOS and Windows",
+    "browserRequirements": "A current browser with IndexedDB and service workers",
+    "softwareVersion": "0.1.0",
+    "isAccessibleForFree": true,
+    "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+    "image": "https://meerpad.com/static/img/logo.png",
+    "sameAs": ["https://github.com/ribalba/meerpad"],
+    "provider": { "@type": "Organization", "name": "RebelProject UG" },
+    "featureList": [
+      "Pages made of blocks: text, headings, lists, to-dos, toggles, quotes, callouts, code, tables, images, files, bookmarks, embeds and equations",
+      "Markdown shortcuts as you type, and inline Markdown in meerail's dialect",
+      "Workspaces, each with its own page tree",
+      "Databases with table, board, list, gallery and Gantt chart views",
+      "Works offline and syncs across devices, merging edits field by field",
+      "Share links to view or to edit a page and everything below it",
+      "Publish any page as a website at meerpad.com/v/your-name or on your own domain",
+      "Drag files into a page; images show in place and PDFs preview inline",
+      "Paste a link to an image or PDF and download it into the page",
+      "Import from Notion's Markdown and CSV export, databases included",
+      "A desktop app for Linux, macOS and Windows",
+      "Open source under AGPL-3.0, self-hostable with Docker and PostgreSQL"
+    ]
+  }
+  </script>
+
+  <!-- Heavy stylesheet loaded non-render-blocking, as on the other meer* sites. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="/static/css/site.css" />
+  <noscript>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.css" />
+  </noscript>
+</head>
+<body>
+  <div class="landing">
+
+    <!-- Top bar -->
+    <header class="landing-nav" id="top">
+      <div class="landing-nav-inner">
+        <a class="landing-brand" href="/">
+          <img src="/static/img/logo-192.png" alt="" />
+          <span>meerpad</span>
+        </a>
+        <nav class="landing-nav-links">
+          <a href="#features">Features</a>
+          <a href="#publish">Publishing</a>
+          <a href="#import">Import</a>
+          <a href="#start">Get started</a>
+          <a class="ui small primary button" href="/login">Sign in</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Hero, on the warm paper of the logo. -->
+    <div class="pad-hero-band">
+      <section class="landing-hero">
+        <!-- The mascot, standing (app/static/img/meerkat.png is the source; the
+             WebP beside it is what is served). The logo stays the app icon. -->
+        <img src="/static/img/meerkat.webp" width="560" height="767" alt="The meerpad meerkat, standing with a page of notes in one paw and a pencil in the other" class="landing-logo" />
+        <div class="landing-hero-copy">
+          <h1 class="landing-title">Notes, docs and wikis that are&nbsp;yours.</h1>
+          <p class="pad-hero-kicker">Offline first, open source.</p>
+          <p class="landing-subtitle">
+            meerpad is a home for everything you write down: pages made of
+            blocks, the way Notion does it, nested as deep as you like, in
+            workspaces for the parts of your life. It keeps a copy of your
+            pages on your device, so it opens and edits without a network,
+            and any page can become a website.
+          </p>
+          <div class="landing-hero-actions">
+            <a class="ui primary button" href="/login"><i class="sign in alternate icon"></i> Sign in</a>
+            <a class="ui basic button" href="/app"><i class="edit outline icon"></i> Open the app</a>
+            <a class="ui basic button" href="https://github.com/ribalba/meerpad" target="_blank" rel="noopener"><i class="github icon"></i> GitHub</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- The screenshot: neutral demo content, shot at 2880x1800 in light and
+           dark (app/static/img/screenshots/page*.png are the sources; the WebP
+           beside them is what is served). meerpic's showcase and lightbox. -->
+      <figure class="landing-showcase">
+        <button type="button" class="landing-shot-btn"
+                data-full="/static/img/screenshots/page.webp"
+                data-full-dark="/static/img/screenshots/page-dark.webp"
+                data-caption="&lt;strong&gt;A page.&lt;/strong&gt; Workspaces for work, the house and the farm, each a tree of pages; blocks with to-dos, a callout and highlighted code, Markdown written as you type it, and one search bar for every page and its text.">
+          <picture>
+            <source srcset="/static/img/screenshots/page-dark.webp" media="(prefers-color-scheme: dark)" />
+            <img src="/static/img/screenshots/page.webp" width="2880" height="1800" decoding="async"
+                 alt="The meerpad window: workspaces and a page tree in the sidebar, and a page with a cover, to-dos, a callout and a code block." />
+          </picture>
+          <span class="landing-shot-zoom"><i class="expand icon"></i></span>
+        </button>
+        <figcaption>Workspaces, a tree of pages, and pages made of blocks you write in Markdown.</figcaption>
+      </figure>
+    </div>
+
+    <!-- Main features -->
+    <section id="features" class="landing-features">
+      <h2 class="landing-section-title">Write it down, find it again</h2>
+      <p class="landing-section-lede">
+        Everything is a page, every page is made of blocks, and every page can
+        hold more pages. The rest follows from that.
+      </p>
+
+      <div class="landing-grid">
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="th large icon"></i></div>
+            <h3>Blocks, like Notion</h3>
+            <p>
+              Text, headings, lists, to-dos, toggles, quotes, callouts, code,
+              tables, images, files, bookmarks, embeds and equations. Press
+              <kbd>/</kbd> for the list of them, and drag a block by its handle
+              to move it anywhere on the page.
+            </p>
+            <div class="landing-chips">
+              <span class="landing-chip"><i class="check square outline icon"></i>To-do</span>
+              <span class="landing-chip"><i class="caret right icon"></i>Toggle</span>
+              <span class="landing-chip"><i class="lightbulb outline icon"></i>Callout</span>
+              <span class="landing-chip"><i class="code icon"></i>Code</span>
+              <span class="landing-chip"><i class="table icon"></i>Table</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="heading icon"></i></div>
+            <h3>Markdown as you type</h3>
+            <p>
+              <code>#&nbsp;</code> is a heading, <code>-&nbsp;</code> a bullet,
+              <code>[]&nbsp;</code> a to-do, <code>&gt;&nbsp;</code> a quote and
+              <code>---</code> a divider. Inside a line it is meerail's
+              dialect:
+            </p>
+            <div class="landing-md">
+              <span class="landing-md-mark">**</span><b>Bold</b><span class="landing-md-mark">**</span>,
+              <span class="landing-md-mark">_</span><i>italic</i><span class="landing-md-mark">_</span>,
+              <span class="landing-md-mark">~~</span><s>struck</s><span class="landing-md-mark">~~</span>,
+              <span class="landing-md-mark">==</span><mark>highlight</mark><span class="landing-md-mark">==</span>
+              and <span class="landing-md-mark">[</span><span class="landing-md-link">links</span><span class="landing-md-mark">](https://…)</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="layer group icon"></i></div>
+            <h3>A workspace per part of your life</h3>
+            <p>
+              Work, House, Farm: each workspace is a page tree of its own, so
+              the tractor manual never turns up between meeting notes. Move a
+              page to another workspace and everything under it moves along.
+            </p>
+            <div class="landing-chips">
+              <span class="landing-chip"><i class="briefcase icon"></i>Work</span>
+              <span class="landing-chip"><i class="home icon"></i>House</span>
+              <span class="landing-chip"><i class="leaf icon"></i>Farm</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="sitemap icon"></i></div>
+            <h3>Everything in a page tree</h3>
+            <p>
+              Pages inside pages, as deep as you like, in the sidebar. Type
+              <kbd>[[</kbd> to link to any page by its name. A deleted page waits
+              in the trash with everything below it, until you empty it.
+            </p>
+            <div class="landing-rows">
+              <span class="landing-row"><i class="file outline icon"></i>Farm</span>
+              <span class="landing-row pad-row-indent"><i class="file outline icon"></i>Chickens</span>
+              <span class="landing-row pad-row-indent-2"><i class="file alternate outline icon"></i>Feeding plan</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="sync alternate icon"></i></div>
+            <h3>Offline first, on every device</h3>
+            <p>
+              Your pages are kept on the device as well as on the server, so
+              meerpad opens and edits on a train, in a barn, on a plane. Edits
+              wait in a queue and sync when the network is back. Two devices
+              editing one page merge field by field, not page by page.
+            </p>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="share alternate icon"></i></div>
+            <h3>Share a link to view or edit</h3>
+            <p>
+              A share link lets anyone read a page and every page below it,
+              without an account. An edit link lets them change it too. Turn
+              either off, or replace it with a new one, whenever you like.
+            </p>
+            <div class="landing-rows">
+              <span class="landing-row"><i class="eye icon"></i>View link<span class="landing-row-note">read only</span></span>
+              <span class="landing-row"><i class="pencil alternate icon"></i>Edit link<span class="landing-row-note">can change</span></span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card landing-card-wide">
+          <div class="landing-card-body">
+            <div class="landing-card-wide-inner">
+              <div class="landing-card-wide-copy">
+                <div class="landing-card-icon"><i class="table icon"></i></div>
+                <h3>Databases whose rows are pages</h3>
+                <p>
+                  A database is a page with properties: text, numbers, select
+                  and status, dates, checkboxes, people, files and links. Every
+                  row is a page of its own, with room for notes. Look at the
+                  same rows as a table, a board, a list, a gallery or a Gantt
+                  chart, each view with its own filters and sort order.
+                </p>
+              </div>
+              <div class="landing-card-wide-aside is-table">
+                <table class="pad-table">
+                  <tr><th>Hen</th><th>Breed</th><th>Status</th><th>Hatched</th></tr>
+                  <tr><td>Henrietta</td><td>Sussex</td><td><span class="pad-tag is-green">Laying</span></td><td>2024-04-12</td></tr>
+                  <tr><td>Clucky</td><td>Orpington</td><td><span class="pad-tag is-orange">Moulting</span></td><td>2023-05-02</td></tr>
+                  <tr><td>Pepper</td><td>Marans</td><td><span class="pad-tag is-blue">Broody</span></td><td>2025-03-30</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="upload icon"></i></div>
+            <h3>Drag files in</h3>
+            <p>
+              Drop pictures, PDFs or any other file onto a page. Pictures
+              show in place, PDFs preview inline, and everything else becomes
+              a file to download, right where you put it.
+            </p>
+            <div class="landing-chips">
+              <span class="landing-chip"><i class="image outline icon"></i>JPG, PNG</span>
+              <span class="landing-chip"><i class="file pdf outline icon"></i>PDF</span>
+              <span class="landing-chip"><i class="file archive outline icon"></i>Anything</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="cloud download icon"></i></div>
+            <h3>Paste a link, keep the file</h3>
+            <p>
+              Paste a link to a picture or a PDF and meerpad offers to fetch
+              it into the page. The manual is still there when the
+              manufacturer's website is not.
+            </p>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="keyboard outline icon"></i></div>
+            <h3>Keyboard first</h3>
+            <p>
+              The shortcuts you already know from every editor, and
+              <kbd>Tab</kbd> to nest a block under the one above it.
+            </p>
+            <div class="landing-keys">
+              <span class="landing-key">/</span>
+              <span class="landing-key">[[</span>
+              <span class="landing-key">Ctrl B</span>
+              <span class="landing-key">Ctrl I</span>
+              <span class="landing-key">Ctrl E</span>
+              <span class="landing-key">Ctrl K</span>
+              <span class="landing-key">Tab</span>
+              <span class="landing-key">Shift Tab</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card landing-card-wide" id="publish">
+          <div class="landing-card-body">
+            <div class="landing-card-wide-inner">
+              <div class="landing-card-wide-copy">
+                <div class="landing-card-icon"><i class="globe icon"></i></div>
+                <h3>Publish any page as a website</h3>
+                <p>
+                  One switch turns a page and every page below it into a
+                  website: the farm shop's opening hours, the club's wiki, a
+                  blog. It lives at <strong>meerpad.com/v/your-name</strong> right
+                  away (you pick the name), or on your own domain after one DNS
+                  record. Pick a
+                  template (minimal, docs with a sidebar, blog, or landing
+                  page), and every edit you make is on the site the moment it
+                  syncs.
+                </p>
+              </div>
+              <div class="landing-card-wide-aside">
+                <div class="landing-rows">
+                  <span class="landing-row"><i class="globe icon"></i><code>meerpad.com/v/chickens</code><span class="landing-row-note">at once</span></span>
+                  <span class="landing-row"><i class="linkify icon"></i><code>eggs.example.org</code><span class="landing-row-note">your domain</span></span>
+                </div>
+                <pre class="landing-code">; one A record at your DNS provider
+eggs.example.org.  A  &lt;server IP&gt;</pre>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card landing-card-wide" id="import">
+          <div class="landing-card-body">
+            <div class="landing-card-wide-inner">
+              <div class="landing-card-wide-copy">
+                <div class="landing-card-icon"><i class="exchange icon"></i></div>
+                <h3>Bring your Notion, databases included</h3>
+                <p>
+                  Export a Notion workspace as <em>Markdown &amp; CSV</em> and
+                  hand meerpad the zip. Pages and subpages, databases with
+                  their rows and properties, callouts, tables, pictures and
+                  attachments come across, and links between pages still point
+                  at each other. Big exports run in the background.
+                </p>
+              </div>
+              <div class="landing-card-wide-aside">
+                <pre class="landing-code"># from a checkout, with an API token
+make import SRC=Export.zip \
+  WORKSPACE=Farm \
+  BASE_URL=https://meerpad.com \
+  MEERPAD_TOKEN=...</pre>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Get started -->
+    <section id="start" class="landing-features">
+      <h2 class="landing-section-title">Get started</h2>
+      <p class="landing-section-lede">
+        Use it here, run your own, or both: the code is the same, and so is
+        the desktop app.
+      </p>
+
+      <div class="landing-grid">
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="envelope open outline icon"></i></div>
+            <h3>Sign in with your email</h3>
+            <p>
+              No password to make up: meerpad mails you a link and a code, and
+              your workspaces are waiting on the other side.
+            </p>
+            <div class="pad-card-actions">
+              <a class="ui primary button" href="/login"><i class="sign in alternate icon"></i> Sign in</a>
+              <a class="ui basic button" href="/app">Open the app</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="desktop icon"></i></div>
+            <h3>The desktop app</h3>
+            <p>
+              A window of its own on Linux, macOS and Windows, signed in by
+              the link in your email, like meerato's. Built from the
+              repository for now.
+            </p>
+            <pre class="landing-code">make desktop</pre>
+          </div>
+        </article>
+
+        <article class="landing-card">
+          <div class="landing-card-body">
+            <div class="landing-card-icon"><i class="code branch icon"></i></div>
+            <h3>Open source, AGPL-3.0</h3>
+            <p>
+              The server, the editor and the desktop shell, all of it on
+              GitHub. The hosted service runs the same code you can read.
+            </p>
+            <div class="pad-card-actions">
+              <a class="ui basic button" href="https://github.com/ribalba/meerpad" target="_blank" rel="noopener"><i class="github icon"></i> ribalba/meerpad</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="landing-card landing-card-wide">
+          <div class="landing-card-body">
+            <div class="landing-card-wide-inner">
+              <div class="landing-card-wide-copy">
+                <div class="landing-card-icon"><i class="server icon"></i></div>
+                <h3>Or host it yourself</h3>
+                <p>
+                  PostgreSQL and the server, in Docker, on
+                  <code>http://127.0.0.1:8050</code>, with the sign-in mail
+                  printed to the log until you configure SMTP. COOLIFY.md in the
+                  repository covers a server with TLS, <code>*.yourdomain</code>
+                  for published websites, and custom domains.
+                </p>
+              </div>
+              <div class="landing-card-wide-aside">
+                <pre class="landing-code">git clone https://github.com/ribalba/meerpad
+cd meerpad
+make up</pre>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="landing-footer">
+      <p>
+        <strong>meerpad</strong> is the hosted service, provided by RebelProject UG.
+        It is one of the
+        <a href="https://meerverse.com" target="_blank" rel="noopener">meerverse</a>
+        family of open-source apps.
+      </p>
+      <p class="landing-footer-links">
+        <a href="https://meerverse.com" target="_blank" rel="noopener">meerverse.com</a>
+        <a href="https://meercal.com" target="_blank" rel="noopener">meercal.com</a>
+        <a href="https://meerail.com" target="_blank" rel="noopener">meerail.com</a>
+        <a href="https://meerato.com" target="_blank" rel="noopener">meerato.com</a>
+        <a href="https://meerpic.com" target="_blank" rel="noopener">meerpic.com</a>
+      </p>
+      <p>
+        <a href="https://github.com/ribalba/meerpad" target="_blank" rel="noopener">
+          <i class="github icon"></i>Open source, AGPL-3.0
+        </a>
+      </p>
+    </footer>
+
+  </div>
+  <!-- Screenshot lightbox (meerpic's). Hidden until the screenshot is clicked. -->
+  <div class="landing-lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Screenshot">
+    <button type="button" class="landing-lightbox-close" id="lightbox-close" aria-label="Close">
+      <i class="times icon"></i>
+    </button>
+    <figure class="landing-lightbox-figure">
+      <img id="lightbox-img" src="" alt="" />
+      <figcaption id="lightbox-caption"></figcaption>
+    </figure>
+  </div>
+
+  <script>
+    // meerpic's lightbox: the thumbnail carries the full-size source and the
+    // long caption, so nothing loads until it is asked for.
+    (function () {
+      var box = document.getElementById('lightbox');
+      var img = document.getElementById('lightbox-img');
+      var cap = document.getElementById('lightbox-caption');
+      var closeBtn = document.getElementById('lightbox-close');
+      var lastFocused = null;
+      var dark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      function open(btn) {
+        var full = btn.dataset.full;
+        if (btn.dataset.fullDark && dark.matches) full = btn.dataset.fullDark;
+        var thumb = btn.querySelector('img');
+        lastFocused = btn;
+        img.src = full;
+        img.alt = thumb ? thumb.alt : '';
+        cap.innerHTML = btn.dataset.caption || '';
+        box.hidden = false;
+        document.body.style.overflow = 'hidden';
+        closeBtn.focus();
+      }
+
+      function close() {
+        box.hidden = true;
+        img.src = '';
+        document.body.style.overflow = '';
+        if (lastFocused) lastFocused.focus();
+      }
+
+      document.querySelectorAll('.landing-shot-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { open(btn); });
+      });
+      closeBtn.addEventListener('click', close);
+      box.addEventListener('click', function (e) {
+        if (e.target === box || e.target.tagName === 'FIGURE') close();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !box.hidden) close();
+      });
+    })();
+  </script>
+</body>
+</html>

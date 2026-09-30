@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+.venv-test
+**/__pycache__
+.pytest_cache
+.ruff_cache
+electron
+tests
+tools
+docs
+.env
+.env.*
+data
+backups
+*.md

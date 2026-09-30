@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sign in to meerpad</title>
+  <meta name="theme-color" content="#1d6ff2" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/img/favicon-64.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/favicon-180.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <script src="/static/js/app.theme.js"></script>
+</head>
+<body class="login-body">
+  <main class="login-card">
+    <img class="login-logo" src="/static/img/logo.png" alt="meerpad" />
+
+    <!-- Step 1: the email. -->
+    <div id="step-email">
+      <h1>Sign in to meerpad</h1>
+      <p class="login-lede">No password needed. We will email you a sign-in link and a code.</p>
+      <form class="login-form" id="login-form">
+        <input class="input" type="email" id="login-email" placeholder="you@example.com" autocomplete="email" required autofocus />
+        <button class="btn btn-primary" type="submit" id="login-submit">Email me a sign-in code</button>
+      </form>
+    </div>
+
+    <!-- Step 2: the code, for when the emailed link opens somewhere else (a
+         phone, another browser, or the desktop app). -->
+    <div id="step-code" hidden>
+      <h1>Enter your code</h1>
+      <p class="login-lede">We emailed a link and a 6-character code to <strong id="sent-to"></strong>.</p>
+      <form class="login-form" id="code-form">
+        <!-- The placeholder avoids 0/1/I/L/O: they are not in the code alphabet
+             (see app/security.py). -->
+        <input class="input" id="login-code" placeholder="K7QW4N" inputmode="text" autocomplete="one-time-code"
+               autocapitalize="characters" spellcheck="false" maxlength="6" required />
+        <button class="btn btn-primary" type="submit" id="code-submit">Sign in</button>
+      </form>
+      <div class="login-actions">
+        <button type="button" class="link-btn" id="resend-code">Send a new code</button>
+        <button type="button" class="link-btn" id="use-other-email">Use a different email</button>
+      </div>
+    </div>
+
+    <div class="login-message" id="login-message" role="status" aria-live="polite"></div>
+    <p class="login-note" id="login-note">🔒 The link signs you in here, on this device.</p>
+  </main>
+
+  <script>
+    // Running inside the desktop app? Its preload script exposes
+    // window.meerpadDesktop (the user agent test is the fallback for an older
+    // shell). Then the emailed link is a meerpad:// deep link, so the session
+    // lands in the app rather than the system browser. That link is also the
+    // one most likely to go nowhere, which is what the code is here to rescue.
+    const IS_DESKTOP = Boolean(window.meerpadDesktop) || /Electron/i.test(navigator.userAgent);
+
+    // Where to go after signing in: a same-site path only ("/s/abc" yes,
+    // "//evil.example" and "https://..." no). The server checks it again.
+    const NEXT = (() => {
+      const n = new URLSearchParams(location.search).get("next") || "";
+      return n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n.slice(0, 500) : "/";
+    })();
+
+    const $ = (id) => document.getElementById(id);
+    const stepEmail = $("step-email");
+    const stepCode = $("step-code");
+    const form = $("login-form");
+    const emailInput = $("login-email");
+    const submitBtn = $("login-submit");
+    const codeForm = $("code-form");
+    const codeInput = $("login-code");
+    const codeSubmit = $("code-submit");
+    const sentTo = $("sent-to");
+    const resendBtn = $("resend-code");
+    const otherEmail = $("use-other-email");
+    const message = $("login-message");
+    const note = $("login-note");
+
+    function setMessage(text, kind) {
+      message.textContent = text;
+      message.className = "login-message" + (kind ? " " + kind : "");
+    }
+
+    async function postJson(url, body) {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const detail = typeof data.detail === "string" ? data.detail
+          : Array.isArray(data.detail) && data.detail[0] ? data.detail[0].msg : null;
+        throw new Error(detail || "Something went wrong. Please try again.");
+      }
+      return data;
+    }
+
+    // Already signed in? Straight on.
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((r) => { if (r.ok) location.replace(NEXT); })
+      .catch(() => {});
+
+    // Ask for a fresh link and code. A new code replaces the previous one, so
+    // this is also the way out of an expired code or of the lockout after too
+    // many wrong guesses.
+    async function requestCode(email) {
+      const body = { email, next: NEXT };
+      if (IS_DESKTOP) body.client = "desktop";
+      await postJson("/api/auth/login", body);
+      sentTo.textContent = email;
+      stepEmail.hidden = true;
+      stepCode.hidden = false;
+      note.textContent = "🔒 The code expires in 30 minutes and signs you in on this device.";
+      codeForm.reset();
+      codeInput.focus();
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+      if (!email) return;
+      submitBtn.disabled = true;
+      setMessage("Sending…");
+      try {
+        await requestCode(email);
+        setMessage("");
+      } catch (err) {
+        setMessage(err.message, "error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    resendBtn.addEventListener("click", async () => {
+      resendBtn.disabled = true;
+      setMessage("Sending…");
+      try {
+        await requestCode(emailInput.value.trim());
+        setMessage("New code sent. Check your email.", "success");
+      } catch (err) {
+        setMessage(err.message, "error");
+      } finally {
+        resendBtn.disabled = false;
+      }
+    });
+
+    codeForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const code = codeInput.value.trim();
+      if (!code) return;
+      codeSubmit.disabled = true;
+      setMessage("Checking…");
+      try {
+        // The email comes back from step 1's input, which was only hidden.
+        await postJson("/api/auth/verify-code", { email: emailInput.value.trim(), code });
+        setMessage("Signed in. One moment…", "success");
+        location.replace(NEXT);
+      } catch (err) {
+        setMessage(err.message, "error");
+        codeInput.select();
+      } finally {
+        codeSubmit.disabled = false;
+      }
+    });
+
+    otherEmail.addEventListener("click", () => {
+      codeForm.reset();
+      stepCode.hidden = true;
+      stepEmail.hidden = false;
+      note.textContent = "🔒 The link signs you in here, on this device.";
+      setMessage("");
+      emailInput.focus();
+    });
+  </script>
+</body>
+</html>

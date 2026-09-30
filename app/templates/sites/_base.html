@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ meta.title }}</title>
+{% if meta.description %}
+<meta name="description" content="{{ meta.description }}">
+{% endif %}
+<link rel="canonical" href="{{ meta.canonical }}">
+{% if meta.noindex %}
+<meta name="robots" content="noindex, nofollow">
+{% endif %}
+<meta property="og:type" content="{{ meta.og_type }}">
+<meta property="og:site_name" content="{{ site.title }}">
+<meta property="og:title" content="{{ meta.og_title }}">
+{% if meta.description %}
+<meta property="og:description" content="{{ meta.description }}">
+{% endif %}
+<meta property="og:url" content="{{ meta.canonical }}">
+{% if meta.og_image %}
+<meta property="og:image" content="{{ meta.og_image }}">
+<meta name="twitter:card" content="summary_large_image">
+{% else %}
+<meta name="twitter:card" content="summary">
+{% endif %}
+<meta name="generator" content="meerpad">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="{{ favicon }}" type="image/svg+xml">
+{% if assets.math %}
+<link rel="stylesheet" href="{{ assets.katex_css }}" crossorigin="anonymous">
+{% endif %}
+<style>
+:root { --accent: {{ theme.accent }}; --accent-ink: {{ theme.accent_ink }}; --accent-dark: {{ theme.accent_dark }}; --accent-dark-ink: {{ theme.accent_dark_ink }}; }
+{% include "sites/_theme.css" %}
+{% include "sites/_blocks.css" %}
+{% block style %}{% endblock %}
+</style>
+</head>
+<body class="tpl-{{ site.template }} {{ page.classes }}">
+{% block body %}{% endblock %}
+{% if preview %}
+<div class="preview-flag">Preview</div>
+{% endif %}
+{% if assets.mermaid %}
+<script type="module" nonce="{{ assets.nonce }}">
+import mermaid from "{{ assets.mermaid_url }}";
+const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "neutral", fontFamily: getComputedStyle(document.body).fontFamily });
+await mermaid.run({ querySelector: "pre.mermaid" });
+</script>
+{% endif %}
+{% if assets.math %}
+<script defer src="{{ assets.katex_js }}" nonce="{{ assets.nonce }}" crossorigin="anonymous"></script>
+<script nonce="{{ assets.nonce }}">
+window.addEventListener("DOMContentLoaded", function () {
+  if (!window.katex) return;
+  document.querySelectorAll("code.math").forEach(function (el) {
+    var out = document.createElement("div");
+    try { window.katex.render(el.textContent, out, { displayMode: true, throwOnError: false }); el.replaceWith(out); } catch (e) { /* keep the TeX source */ }
+  });
+});
+</script>
+{% endif %}
+</body>
+</html>

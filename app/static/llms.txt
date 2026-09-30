@@ -1,0 +1,32 @@
+# meerpad
+
+> meerpad is a free, open-source (AGPL-3.0), offline-first app for notes, docs and wikis in the style of Notion: pages made of blocks, nested in a page tree, grouped into workspaces, with databases, share links, and any page published as a website. It keeps a copy of your pages on your device, so it opens and edits without a network and syncs when the network is back. It imports Notion's "Markdown & CSV" export, databases included. It is hosted at meerpad.com, and you can run it yourself with Docker and PostgreSQL.
+
+- Website and hosted service: https://meerpad.com/ (sign in with an email link and code, no password)
+- Source code and documentation: https://github.com/ribalba/meerpad
+- Provided by: RebelProject UG
+- Status: version 0.1.0, a young project that is still being built
+- Family: part of the meer* apps (https://meerverse.com/), with meercal for calendars (https://meercal.com/), meerail for mail (https://meerail.com/), meerato for tasks (https://meerato.com/) and meerpic for photos (https://meerpic.com/)
+
+## Features
+
+- **Blocks, like Notion:** paragraphs, three heading levels, bulleted and numbered lists, to-dos, toggles, quotes, callouts, code (with a language), dividers, images, files (PDFs preview inline), bookmarks, embeds (YouTube, Vimeo and similar), tables, equations, links to pages and inline databases. `/` opens the list of blocks; a block is moved by dragging its handle.
+- **Markdown as you type:** `# `, `## `, `### ` for headings, `- ` for a bullet, `1. ` for a numbered list, `[] ` for a to-do, `> ` for a quote, three backticks for code and `---` for a divider. Inline text is meerail's Markdown dialect: `**bold**`, `*italic*` or `_italic_`, `~~strike~~`, `` `code` ``, `==highlight==` and `[text](url)` links. `[[` links to another page by name.
+- **Keyboard:** Ctrl+B, Ctrl+I, Ctrl+E (inline code) and Ctrl+K (link); Tab and Shift+Tab nest and un-nest a block.
+- **Workspaces:** for example Work, House and Farm. Each has its own page tree; moving a page to another workspace moves its whole subtree.
+- **Page tree:** pages inside pages, as deep as you like, in the sidebar. Deleting is soft: a page waits in the trash with everything below it.
+- **Databases:** a database is a page whose rows are pages. Properties: text, number, select, multi-select, status, date, checkbox, URL, email, phone, person, files, created time and last edited time. Views: table, board, list, gallery and Gantt chart (rows as bars on a timeline, dragged to reschedule), each with its own filters and sort order.
+- **Offline first and synced:** the browser keeps a copy of every page (IndexedDB) and a queue of changes, and syncs with the server when it can. Conflicts are resolved per field (the last write to each field wins), not per page.
+- **Sharing:** a view link lets anyone read a page and everything below it without an account; an edit link lets them change it too. Links can be turned off or replaced.
+- **Publishing:** any page and its subpages can be published as a website at `meerpad.com/v/<name>` (the owner picks the name) or on a custom domain (one A record pointing at the server). Templates: minimal, docs (with a sidebar), blog and landing page. Sites serve a sitemap and robots.txt.
+- **Files:** drag files into a page. Paste a link to an image or a PDF and the server can download it into the page, so it stays when the original disappears.
+- **Import from Notion:** upload a Notion "Markdown & CSV" export zip. Pages, subpages, databases with their rows and properties, callouts, tables, images and attachments are imported, and links between pages are kept. Large imports run in the background. There is also a command-line importer (`tools/notion_import.py`, `make import`).
+- **Desktop app:** an Electron window for Linux, macOS and Windows, signed in through a `meerpad://` link in the sign-in email.
+
+## How it works
+
+One Python server (FastAPI) with PostgreSQL. The browser app keeps a mirror of your pages in IndexedDB and exchanges changes with the server through `/api/sync/push` and `/api/sync/pull`, ordered by a server revision counter. The same server answers for every published website: at `/v/<name>` on its own address, and on custom domains, told apart by the Host header. Self-hosting is `git clone https://github.com/ribalba/meerpad`, then `make up`, which starts PostgreSQL and the server with Docker Compose on http://127.0.0.1:8050. COOLIFY.md in the repository describes a deployment with TLS and custom domains for published sites.
+
+## License
+
+GNU Affero General Public License v3.0 (AGPL-3.0).

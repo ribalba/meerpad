@@ -1,0 +1,198 @@
+{% extends "sites/_base.html" %}
+{% import "sites/_macros.html" as m %}
+{# Docs: sticky sidebar with the whole page tree, content, "on this page",
+   previous/next. On phones the sidebar slides in from a menu button; a hidden
+   checkbox drives it, so it works without JavaScript. #}
+{% macro tree(items) %}
+<ul>
+{% for it in items %}
+<li>
+{% if it.children %}
+<details{% if it.open %} open{% endif %}>
+<summary><a href="{{ it.path }}"{% if it.active %} class="active" aria-current="page"{% endif %}>{{ it.icon }}<span>{{ it.title }}</span></a></summary>
+{{ tree(it.children) }}
+</details>
+{% else %}
+<a href="{{ it.path }}"{% if it.active %} class="active" aria-current="page"{% endif %}>{{ it.icon }}<span>{{ it.title }}</span></a>
+{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% endmacro %}
+{% block style %}
+:root { --top: 56px; --side: 280px; }
+.docs-top {
+  position: sticky; top: 0; z-index: 40; height: var(--top);
+  display: flex; align-items: center; gap: 10px; padding: 0 20px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 650; font-size: .95rem; color: var(--text); text-decoration: none; }
+.brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-btn { display: none; width: 36px; height: 36px; margin-left: -8px; border-radius: 8px; place-items: center; cursor: pointer; color: var(--text-2); }
+.menu-btn:hover { background: var(--bg-hover); color: var(--text); }
+.menu-btn svg { width: 20px; height: 20px; }
+.nav-toggle:focus-visible + .docs-top .menu-btn { outline: 2px solid var(--accent); }
+
+.shell { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); max-width: 1480px; margin: 0 auto; }
+.shell.has-toc { grid-template-columns: var(--side) minmax(0, 1fr) 232px; }
+.shell.no-nav { grid-template-columns: minmax(0, 1fr); }
+.sidebar {
+  position: sticky; top: var(--top); align-self: start; height: calc(100vh - var(--top)); height: calc(100dvh - var(--top));
+  overflow-y: auto; overscroll-behavior: contain; padding: 22px 14px 48px 18px;
+  border-right: 1px solid var(--border); scrollbar-width: thin;
+}
+.sidebar .section-label { padding: 0 10px; margin: 0 0 8px; }
+.side-home { margin-bottom: 4px; }
+.tree .brand-icon { font-size: 1em; }
+.tree img.brand-icon { width: 1.05em; height: 1.05em; }
+.tree ul { list-style: none; margin: 0; padding: 0; }
+.tree ul ul { margin: 2px 0 4px 15px; padding-left: 8px; border-left: 1px solid var(--border); }
+.tree li { margin: 1px 0; }
+.tree a {
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
+  padding: 5px 10px; border-radius: 7px; color: var(--text-2); text-decoration: none;
+  font-size: .9rem; line-height: 1.4; transition: background .12s, color .12s;
+}
+.tree a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree a:hover { background: var(--bg-hover); color: var(--text); }
+.tree a.active { background: color-mix(in srgb, var(--accent) 11%, transparent); color: var(--accent); font-weight: 580; }
+.tree summary { display: flex; align-items: center; list-style: none; cursor: pointer; border-radius: 7px; }
+.tree summary::-webkit-details-marker { display: none; }
+.tree summary::after {
+  content: ""; flex: none; width: 24px; height: 24px; margin-left: 2px; border-radius: 6px; opacity: .45;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 4l4 4-4 4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 13px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 4l4 4-4 4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 13px no-repeat;
+  transition: transform .18s ease;
+  color: var(--text-2);
+}
+.tree details[open] > summary::after { transform: rotate(90deg); }
+.tree summary:hover::after { opacity: .9; }
+
+.main { min-width: 0; padding: 40px 56px 0; }
+.doc { max-width: 780px; margin: 0 auto; }
+.full-width .doc { max-width: 1100px; }
+.doc-cover { height: 190px; border-radius: 14px; overflow: hidden; margin: 0 0 28px; background: var(--bg-soft); }
+.doc-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.doc .has-cover.has-icon .page-icon-wrap { margin-top: -74px; padding-left: 20px; }
+.doc .page-icon { font-size: 60px; }
+.doc img.page-icon { width: 68px; height: 68px; }
+.page-head { margin-bottom: 24px; }
+.page-title { font-size: clamp(2rem, 1.7rem + 1.2vw, 2.5rem); }
+.subpages { margin-top: 48px; }
+
+.pager { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 64px 0 0; }
+.pager a {
+  display: flex; flex-direction: column; gap: 3px; padding: 14px 18px; border: 1px solid var(--border-2);
+  border-radius: 12px; color: var(--text); text-decoration: none; min-width: 0;
+  transition: border-color .15s, box-shadow .15s;
+}
+.pager a:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.pager .dir { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--text-3); }
+.pager .dir .arrow { width: 13px; height: 13px; }
+.pager .t { font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pager .next { grid-column: 2; text-align: right; align-items: flex-end; }
+.updated { margin: 28px 0 0; font-size: .8rem; color: var(--text-3); }
+.main .site-footer { max-width: 780px; margin: 56px auto 0; padding: 22px 0 44px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.full-width .main .site-footer { max-width: 1100px; }
+.main .site-footer .footer-text { margin: 0; }
+
+.toc { position: sticky; top: var(--top); align-self: start; max-height: calc(100vh - var(--top)); overflow-y: auto; padding: 42px 22px 40px 8px; font-size: .84rem; }
+.toc ul { list-style: none; margin: 10px 0 0; padding: 0 0 0 1px; border-left: 1px solid var(--border); }
+.toc li a { display: block; padding: 4px 0 4px 14px; margin-left: -1px; border-left: 1px solid transparent; color: var(--text-2); text-decoration: none; line-height: 1.4; }
+.toc li.lvl-2 a { padding-left: 26px; font-size: .95em; }
+.toc li a:hover { color: var(--text); border-left-color: var(--text-3); }
+
+.scrim { display: none; }
+@media (max-width: 1240px) {
+  .shell.has-toc { grid-template-columns: var(--side) minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 900px) {
+  .menu-btn { display: grid; }
+  .shell, .shell.has-toc { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    /* align-self also applies to fixed boxes: without "normal" the panel
+       would shrink to its content instead of spanning top to bottom. */
+    position: fixed; z-index: 35; top: var(--top); left: 0; bottom: 0; width: min(86vw, 310px); height: auto; align-self: normal;
+    background: var(--bg); box-shadow: var(--shadow-lg); transform: translateX(-102%); visibility: hidden;
+    transition: transform .22s ease, visibility 0s linear .22s;
+  }
+  .nav-toggle:checked ~ .shell .sidebar { transform: none; visibility: visible; transition: transform .22s ease; }
+  .nav-toggle:checked ~ .shell .scrim { display: block; position: fixed; inset: var(--top) 0 0 0; z-index: 30; background: rgba(0, 0, 0, .28); }
+  .main { padding: 28px 20px 0; }
+  .doc-cover { height: 140px; border-radius: 10px; margin-bottom: 22px; }
+  .doc .has-cover.has-icon .page-icon-wrap { margin-top: -58px; padding-left: 14px; }
+  .doc .page-icon { font-size: 50px; }
+  .pager { grid-template-columns: 1fr; margin-top: 44px; }
+  .pager .next { grid-column: 1; }
+}
+{% endblock %}
+{% block body %}
+{% if site.show_nav %}
+<input type="checkbox" id="nav-toggle" class="nav-toggle visually-hidden" aria-label="Show navigation">
+{% endif %}
+<header class="docs-top">
+{% if site.show_nav %}
+<label for="nav-toggle" class="menu-btn" title="Menu"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 6h13M3.5 10h13M3.5 14h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></label>
+{% endif %}
+<a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
+</header>
+<div class="shell{% if not site.show_nav %} no-nav{% elif toc|length > 1 %} has-toc{% endif %}">
+{% if site.show_nav %}
+<aside class="sidebar" aria-label="Pages">
+<nav class="tree">
+<ul>
+<li class="side-home"><a href="{{ site.home }}"{% if page.is_root %} class="active" aria-current="page"{% endif %}>{{ site.icon }}<span>{{ root_title }}</span></a></li>
+</ul>
+{% if nav %}
+{{ tree(nav) }}
+{% endif %}
+</nav>
+</aside>
+<label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+{% endif %}
+<main class="main">
+<article class="doc">
+{{ m.crumbs(breadcrumbs, page) }}
+{% if page.cover %}
+{% if page.cover.kind == "image" %}
+<div class="doc-cover"><img src="{{ page.cover.url }}" alt="" fetchpriority="high"></div>
+{% else %}
+<div class="doc-cover" style="background: {{ page.cover.css }}"></div>
+{% endif %}
+{% endif %}
+{{ m.page_head(page) }}
+{{ page.properties }}
+<div class="page-body">{{ content }}</div>
+{{ m.page_cards(children, "In this section") }}
+{% if prev or next %}
+<nav class="pager" aria-label="Previous and next page">
+{% if prev %}
+<a class="prev" href="{{ prev.path }}" rel="prev"><span class="dir">{{ m.arrow("left") }}Previous</span><span class="t">{{ prev.title }}</span></a>
+{% endif %}
+{% if next %}
+<a class="next" href="{{ next.path }}" rel="next"><span class="dir">Next{{ m.arrow() }}</span><span class="t">{{ next.title }}</span></a>
+{% endif %}
+</nav>
+{% endif %}
+{% if page.updated %}
+<p class="updated">Last updated {{ page.updated }}</p>
+{% endif %}
+</article>
+{{ m.footer(site, made_with) }}
+</main>
+{% if site.show_nav and toc|length > 1 %}
+<aside class="toc" aria-label="On this page">
+<div class="section-label">On this page</div>
+<ul>
+{% for h in toc %}
+<li class="lvl-{{ h.level }}"><a href="#{{ h.id }}">{{ h.text }}</a></li>
+{% endfor %}
+</ul>
+</aside>
+{% endif %}
+</div>
+{% endblock %}

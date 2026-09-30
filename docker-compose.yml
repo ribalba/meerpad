@@ -1,0 +1,111 @@
+# meerpad: Postgres and the server, on your machine.
+#
+#   make up        (or: docker compose up --build -d)  ->  http://127.0.0.1:8050
+#
+# The project name is set explicitly, and is not the directory name: Compose
+# derives it from the directory otherwise, and two stacks with one name share
+# containers and the database volume (meercal's and meerpic's reasoning).
+#
+# Everything is configured from the environment, the way meerato is: the
+# `environment:` block below reads .env (copy .env.example; `make config`
+# does) and falls back to development defaults that work out of the box.
+# Coolify deploys docker-compose.coolify.yml instead; see COOLIFY.md.
+name: meerpad
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meerpad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meerpad}
+      POSTGRES_DB: ${POSTGRES_DB:-meerpad}
+    ports:
+      # On the host's loopback so `make dev` (uvicorn run natively) and the
+      # tests can reach it. The 127.0.0.1 prefix is load-bearing: drop it and
+      # Docker publishes on 0.0.0.0, straight through the host firewall to a
+      # database with the default password.
+      #
+      # 5435: meerail has 5432, meercal 5433 and meerpic 5434, and they all
+      # run side by side.
+      - "127.0.0.1:${MEERPAD_DB_PORT:-5435}:5432"
+    volumes:
+      # Postgres 18+ stores data in a version-specific subdirectory and expects
+      # a single mount at /var/lib/postgresql (not .../data). This layout is
+      # what keeps an in-place `pg_upgrade --link` possible later.
+      - meerpad-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meerpad} -d ${POSTGRES_DB:-meerpad}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      args:
+        MEERPAD_VERSION: ${MEERPAD_VERSION:-0.0.0}
+    image: meerpad-server:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Where the app is reachable from a browser. Login and share links in
+      # emails are built from it, and its host is what separates "the app"
+      # from "a published website" (app/sites.py): any other Host header is
+      # looked up as a site. Must match the port published below.
+      BASE_URL: ${BASE_URL:-http://localhost:8050}
+      # Signs login codes. CHANGE THIS anywhere but your own laptop.
+      SECRET_KEY: ${SECRET_KEY:-dev-insecure-secret-change-me}
+
+      # Container topology: the bundled database, and the volume below.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-meerpad}:${POSTGRES_PASSWORD:-meerpad}@db:5432/${POSTGRES_DB:-meerpad}
+      UPLOAD_DIR: /data/uploads
+      IMPORT_DIR: /data/imports
+
+      # Limits. 50 MB per dropped file; 4 GB for a Notion export zip, which is
+      # a whole workspace with every attachment in it.
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-52428800}
+      MAX_IMPORT_BYTES: ${MAX_IMPORT_BYTES:-4294967296}
+      # The workspaces a brand-new account starts with, comma separated.
+      DEFAULT_WORKSPACES: ${DEFAULT_WORKSPACES:-Work,Private}
+
+      # Sign-in (meerato's numbers; see app/config.py).
+      LOGIN_TOKEN_TTL_MINUTES: ${LOGIN_TOKEN_TTL_MINUTES:-30}
+      SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-43200}
+      LOGIN_CODE_MAX_ATTEMPTS: ${LOGIN_CODE_MAX_ATTEMPTS:-5}
+      LOGIN_RATE_MAX: ${LOGIN_RATE_MAX:-5}
+      VERIFY_RATE_MAX: ${VERIFY_RATE_MAX:-15}
+      LOGIN_RATE_WINDOW_MINUTES: ${LOGIN_RATE_WINDOW_MINUTES:-15}
+
+      # Email. Leave SMTP_HOST empty and the sign-in link and code are printed
+      # to the container log instead (`make logs`), which is all a laptop needs.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      EMAIL_FROM: ${EMAIL_FROM:-hello@meerpad.com}
+
+      # Published websites live at BASE_URL/v/<name>. PUBLIC_IP is the address
+      # a custom domain's A record should name (shown in the publish dialog,
+      # never checked).
+      PUBLIC_IP: ${PUBLIC_IP:-}
+
+      # "Download this pasted link into the page" refuses private and
+      # loopback addresses unless this is true. Developer machines only.
+      FETCH_ALLOW_PRIVATE: ${FETCH_ALLOW_PRIVATE:-false}
+      FETCH_TIMEOUT_SECONDS: ${FETCH_TIMEOUT_SECONDS:-20}
+    volumes:
+      # Every uploaded file and every Notion import in progress. Back this up
+      # together with meerpad-db: pages point at files by id.
+      - meerpad-data:/data
+    ports:
+      # 8050: meerail has 8000, meercal 8010, meerink 8030, meerpic 8040.
+      # 127.0.0.1 unless you have TLS in front: see MEERPAD_BIND in .env.
+      - "${MEERPAD_BIND:-127.0.0.1}:${MEERPAD_PORT:-8050}:8000"
+    restart: unless-stopped
+
+volumes:
+  meerpad-db:
+  meerpad-data:

@@ -1,0 +1,65 @@
+{# Pieces every site template shares. Imported macros see only their arguments. #}
+
+{% macro logo() %}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 6.2c1.6 0 1.6-1.4 3.25-1.4S6.4 6.2 8 6.2s1.6-1.4 3.25-1.4 1.65 1.4 3.25 1.4M1.5 10.8c1.6 0 1.6-1.4 3.25-1.4S6.4 10.8 8 10.8s1.6-1.4 3.25-1.4 1.65 1.4 3.25 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>{% endmacro %}
+
+{% macro arrow(dir="right") %}<svg class="arrow" viewBox="0 0 16 16" aria-hidden="true">{% if dir == "left" %}<path d="M13 8H3.5M7.5 3.5 3 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>{% else %}<path d="M3 8h9.5M8.5 3.5 13 8l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>{% endif %}</svg>{% endmacro %}
+
+{% macro cover(c, cls="cover") %}
+{% if c %}
+{% if c.kind == "image" %}
+<div class="{{ cls }}"><img src="{{ c.url }}" alt="" fetchpriority="high"></div>
+{% else %}
+<div class="{{ cls }}" style="background: {{ c.css }}"></div>
+{% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro card_cover(c) %}
+{% if c and c.kind == "image" %}
+<div class="card-cover"><img src="{{ c.url }}" alt="" loading="lazy" decoding="async"></div>
+{% elif c %}
+<div class="card-cover" style="background: {{ c.css }}"></div>
+{% endif %}
+{% endmacro %}
+
+{% macro crumbs(items, page) %}
+{% if items %}
+<nav class="crumbs" aria-label="Breadcrumb">
+{% for c in items %}
+<a href="{{ c.path }}">{{ c.icon }}<span>{{ c.title }}</span></a><span class="sep" aria-hidden="true">/</span>
+{% endfor %}
+<span class="current" aria-current="page">{{ page.title }}</span>
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro page_head(page) %}
+<header class="page-head{% if page.cover %} has-cover{% endif %}{% if page.icon %} has-icon{% endif %}">
+{% if page.icon %}
+<div class="page-icon-wrap">{{ page.icon }}</div>
+{% endif %}
+<h1 class="page-title">{{ page.title }}</h1>
+</header>
+{% endmacro %}
+
+{% macro page_cards(cards, label="Pages") %}
+{% if cards %}
+<section class="subpages" aria-label="{{ label }}">
+<h2 class="section-label">{{ label }}</h2>
+<ul class="cards">
+{% for c in cards %}
+<li><a class="card" href="{{ c.path }}">{{ card_cover(c.cover) }}<div class="card-body"><div class="card-title">{{ c.icon }}<span>{{ c.title }}</span></div>{% if c.excerpt %}<div class="card-excerpt">{{ c.excerpt }}</div>{% endif %}</div></a></li>
+{% endfor %}
+</ul>
+</section>
+{% endif %}
+{% endmacro %}
+
+{% macro footer(site, made_with, cls="") %}
+<footer class="site-footer {{ cls }}">
+{% if site.footer %}
+<p class="footer-text">{{ site.footer }}</p>
+{% endif %}
+<a class="made-with" href="{{ made_with }}">{{ logo() }}<span>Made with meerpad</span></a>
+</footer>
+{% endmacro %}

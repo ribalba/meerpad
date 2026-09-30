@@ -1,0 +1,29 @@
+# Live reload inside Docker. Bind-mounts the source over the image's copy and
+# restarts uvicorn on every edit (meerato's overlay, on meerpad's ports).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# `make dev` is the other way to the same loop: uvicorn run natively against
+# this stack's database, which is quicker to restart and easier to debug.
+services:
+  web:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--reload", "--reload-dir", "/app/app",
+              "--proxy-headers", "--forwarded-allow-ips", "*"]
+    volumes:
+      # Only app/, not the whole checkout as meerato mounts it: the server
+      # needs nothing else from the tree, and the image's VERSION and
+      # requirements stay the ones it was built with. Static files are under
+      # app/ too, so a CSS or JS edit is a browser reload away.
+      - ./app:/app/app
+    # !override, because Compose concatenates `ports` across files: without it
+    # the dev stack would publish 8050 as well as 8051.
+    ports: !override
+      # A port of its own, not 8050: a different origin, so the dev stack's
+      # session cookie, service worker and offline copy of your pages
+      # (IndexedDB is per origin) never mix with the normal stack's.
+      - "${MEERPAD_BIND:-127.0.0.1}:8051:8000"
+    environment:
+      # Login links have to point at this overlay's port. Not read from .env,
+      # where BASE_URL names the normal stack's 8050.
+      BASE_URL: http://localhost:8051
