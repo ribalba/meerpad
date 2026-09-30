@@ -221,6 +221,7 @@ def test_site_served_at_its_v_address(client):
     assert '<meta name="description" content="Welcome to the farm.">' in html
     assert '<link rel="canonical" href="http://testserver/v/farm/">' in html
     assert "Made with meerpad" in html and 'href="https://meerpad.com"' in html
+    assert '<img src="data:image/png;base64,' in html  # the meerkat, inline so custom domains get it too
     assert "noindex" not in html
     assert r.headers["cache-control"] == "public, max-age=60"
     assert "script-src 'nonce-" in r.headers["content-security-policy"]

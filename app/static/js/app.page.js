@@ -316,7 +316,10 @@ App.page = (() => {
         { label: "Duplicate", icon: "copy", onSelect: () => { const c = App.store.duplicatePage(page.id); if (c) App.nav.openPage(c.id); } },
         { label: "Move to…", icon: "move", disabled: !page.parent_id, onSelect: () => App.shell.movePicker(anchor, page.id) });
     }
-    items.push({ divider: true }, { label: "Export Markdown", icon: "download", onSelect: () => exportMarkdown(page) });
+    items.push({ divider: true });
+    // The owner's only: a share-link visitor never sees a page's history.
+    if (!isShare()) items.push({ label: "Page history", icon: "history", onSelect: () => App.history && App.history.open(page.id) });
+    items.push({ label: "Export Markdown", icon: "download", onSelect: () => exportMarkdown(page) });
     if (!isShare() && !view.trashed) {
       items.push({ label: "Import from Notion", icon: "import", onSelect: () => App.import && App.import.open({ workspaceId: page.workspace_id, parentPageId: page.id }) });
       if (page.parent_id) {

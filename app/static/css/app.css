@@ -649,6 +649,15 @@ button.tree-section-label:hover { color: var(--text-muted); }
   padding: .75rem 1.25rem; border-top: 1px solid var(--border); }
 .modal-error { margin-top: .6rem; color: var(--danger-text); font-size: .84rem; }
 
+/* The first-run welcome (app.welcome.js) */
+.welcome-demo { margin: .9rem 0; padding: .85rem 1rem .6rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elev); }
+.welcome-demo-head { display: flex; align-items: center; gap: .7rem; margin-bottom: .55rem; }
+.welcome-demo-icon { font-size: 1.8rem; line-height: 1; }
+.welcome-demo-name { font-weight: 600; }
+.welcome-list { list-style: none; margin: 0; padding: 0; }
+.welcome-list li { display: flex; gap: .55rem; padding: .2rem 0; }
+.welcome-emoji { flex: 0 0 1.3rem; text-align: center; }
+
 /* =========================================================================
    Toasts
    ========================================================================= */
@@ -1744,6 +1753,204 @@ button.db-prop-key:hover { background: var(--hover-tint); }
   .db-sel-more { opacity: 1; }
 }
 
+/* =========================================================================
+   Page history (app.history.js)
+   ========================================================================= */
+
+/* A fixed size, like Settings: the session list and the picked session
+   scroll on their own, and the dialog does not jump as sessions are picked. */
+.modal.history-modal { width: min(1000px, 100%); height: min(80vh, 760px); }
+.history-modal .modal-body { display: flex; padding: 0; overflow: hidden; }
+.hist-root { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.hist-state { flex: 1; min-width: 0; overflow-y: auto; padding: .35rem 1.25rem 1.1rem; }
+.hist { display: grid; grid-template-columns: 290px minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0;
+  border-top: 1px solid var(--border); }
+.hist-list, .hist-view { min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  scrollbar-color: var(--hover-tint-strong) transparent; }
+
+/* --- the sessions ------------------------------------------------------------ */
+.hist-list { display: flex; flex-direction: column; gap: 2px; padding: .5rem; background: var(--sidebar);
+  border-right: 1px solid var(--border); }
+.hist-item { display: flex; flex-direction: column; align-items: flex-start; gap: .15rem; flex: 0 0 auto; width: 100%;
+  padding: .5rem .6rem; border: 0; border-radius: var(--radius); background: none; color: var(--text); text-align: left; }
+.hist-item:hover { background: var(--hover-tint); }
+.hist-item.active { background: var(--accent-weak); }
+.hist-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.hist-when { font-size: .86rem; font-weight: 600; line-height: 1.35; }
+.hist-who { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem;
+  color: var(--text-muted); }
+.hist-hint { font-size: .74rem; color: var(--text-muted); line-height: 1.4; }
+.hist-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; margin-top: .15rem; }
+.hist-meta .badge { height: 18px; font-size: .68rem; }
+.hist-stat { display: inline-flex; align-items: center; height: 18px; padding: 0 .35rem; border-radius: 4px;
+  font-size: .7rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+  background: var(--hover-tint); color: var(--text-muted); }
+.hist-stat.add { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.hist-stat.del { background: color-mix(in srgb, var(--danger-text) 13%, transparent); color: var(--danger-text); }
+.hist-stat.chg { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.hist-quiet { font-size: .72rem; color: var(--text-faint); }
+
+/* --- the picked session ---------------------------------------------------------- */
+.hist-detail { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.hist-head { display: flex; align-items: flex-start; gap: .6rem; flex: 0 0 auto; padding: .85rem 1.25rem .55rem; }
+.hist-back { display: none; }
+.hist-head-main { flex: 1; min-width: 0; }
+.hist-head-when { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .5rem; font-size: 1rem; font-weight: 600; }
+.hist-head-who { margin-top: .1rem; font-size: .8rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.hist-head-hint { margin-top: .3rem; font-size: .78rem; color: var(--text-muted); line-height: 1.45; }
+.hist-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem .75rem;
+  flex: 0 0 auto; padding: 0 1.25rem .7rem; border-bottom: 1px solid var(--border); }
+.hist-compare { display: flex; align-items: center; gap: .45rem; min-width: 0; font-size: .8rem; color: var(--text-muted); }
+.hist-compare > span { white-space: nowrap; }
+.hist-compare .select { width: auto; min-width: 0; max-width: 100%; min-height: 28px; padding: .15rem .4rem; font-size: .82rem; }
+.hist-mode { flex: 0 0 auto; }
+/* The page's own background, as in the editor: code, callouts and table
+   headers are tinted against it, and in dark mode the dialog's is the same tint. */
+.hist-view { flex: 1; padding: 1rem 1.25rem 2rem; background: var(--bg); }
+.hist-view > .note { margin-top: .25rem; }
+
+/* --- the page, read-only: the editor's measures, the history's own classes --------- */
+.hist-doc { font-size: 15px; line-height: 1.5; color: var(--text); }
+.hist-font-serif { font-family: var(--font-serif); }
+.hist-font-mono { font-family: var(--font-mono); font-size: 14px; }
+.hist-lead { margin: 0 0 .9rem; font-size: .8rem; color: var(--text-muted); }
+.hist-doc .section-title { margin: 1.1rem 0 .45rem; }
+.hist-doc .section-title:first-of-type { margin-top: 0; }
+.hist-doc .empty-state { padding: 2.5rem 1rem; }
+.hist-cover { height: 96px; margin-bottom: .75rem; border-radius: 6px; overflow: hidden; }
+.hist-cover:not([class*="gradient-"]) { background: var(--bg-elev); }
+.hist-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hist-doc-icon { font-size: 2.4rem; line-height: 1; margin-bottom: .3rem; }
+.hist-doc-icon .hist-img-icon { width: 44px; height: 44px; }
+.hist-doc-title { margin: .1rem 0 .7rem; font-size: 1.75em; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.hist-props { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); gap: .2rem 1rem; margin: 0 0 1rem;
+  padding-bottom: .75rem; border-bottom: 1px solid var(--border); font-size: .88rem; }
+.hist-props dt { color: var(--text-muted); overflow-wrap: anywhere; }
+.hist-props dd { margin: 0; overflow-wrap: anywhere; }
+.hist-db-note { margin-bottom: 1rem; }
+
+/* One block. Depth indents it; a diff colours its left edge. */
+.hist-b { display: flex; align-items: flex-start; gap: .5rem; margin: 1px 0 1px calc(var(--depth, 0) * 1.5rem);
+  padding: 0 .5rem; border-left: 3px solid transparent; border-radius: 0 4px 4px 0; }
+.hist-b-main { flex: 1; min-width: 0; }
+/* The page as it was has no change bars, so its blocks line up with the title. */
+.hist-snap .hist-b { padding: 0; border-left: 0; }
+.hist-added { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 9%, transparent); }
+.hist-removed { border-left-color: var(--danger-text); background: color-mix(in srgb, var(--danger-text) 8%, transparent); }
+.hist-removed .hist-b-main { color: var(--text-muted); text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--danger-text) 75%, transparent); }
+.hist-removed .hist-img, .hist-removed .hist-card { opacity: .6; }
+.hist-changed { border-left-color: var(--warning); }
+.hist-same.is-moved { border-left-color: var(--accent-soft); }
+.hist-added .hist-text:empty::before, .hist-removed .hist-text:empty::before, .hist-changed .hist-text:empty::before {
+  content: "Empty line"; color: var(--text-faint); font-style: italic; font-size: .85em; }
+.hist-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .25rem; flex: 0 1 auto; max-width: 45%; padding-top: 5px; }
+.hist-tag { display: inline-flex; align-items: center; gap: .2rem; height: 18px; padding: 0 .4rem; border-radius: 4px;
+  font-size: .7rem; font-weight: 600; white-space: nowrap; text-decoration: none;
+  background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.hist-tag-moved { background: var(--accent-weak); color: var(--accent); }
+.hist-fold { display: flex; align-items: center; justify-content: center; gap: .4rem; width: 100%; margin: 6px 0; padding: .3rem .6rem;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius); background: none; color: var(--text-muted); font-size: .78rem; }
+.hist-fold:hover { background: var(--hover-tint-soft); color: var(--text); }
+.hist-fold:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Text, as the editor sets it. */
+.hist-text { min-height: 1.5em; padding: 3px 0; overflow-wrap: anywhere; }
+.hist-h1 { margin-top: .6em; font-size: 1.75em; font-weight: 700; line-height: 1.3; }
+.hist-h2 { margin-top: .45em; font-size: 1.4em; font-weight: 650; line-height: 1.3; }
+.hist-h3 { margin-top: .3em; font-size: 1.2em; font-weight: 600; line-height: 1.3; }
+.hist-doc strong { font-weight: 600; }
+.hist-doc mark { background: var(--ed-mark, rgba(255,212,0,.35)); color: inherit; border-radius: 2px; padding: 0 1px; }
+.hist-doc .md-code { font-family: var(--font-mono); font-size: .85em; padding: .1em .3em; border-radius: 3px;
+  color: var(--ed-inline-code, var(--danger-text)); background: var(--ed-inline-code-bg, var(--hover-tint)); }
+.hist-doc .hist-text a, .hist-doc .hist-caption a, .hist-table a { color: inherit; text-decoration: underline;
+  text-decoration-color: var(--text-faint); text-underline-offset: 2px; }
+.hist-doc a[data-page-id] { font-weight: 500; text-decoration-color: var(--accent-soft); }
+/* A word diff: raw text, added words green and underlined, removed ones red and struck. */
+.hist-segs { white-space: pre-wrap; }
+.hist-segs ins { text-decoration: underline; text-decoration-color: var(--ok); text-underline-offset: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--ok) 22%, transparent); color: inherit; }
+.hist-segs del { text-decoration: line-through; border-radius: 2px; color: var(--danger-text);
+  background: color-mix(in srgb, var(--danger-text) 15%, transparent); }
+
+/* Lists, to-dos, toggles: a marker column and the text. */
+.hist-row { display: flex; align-items: flex-start; }
+.hist-marker { display: flex; justify-content: center; flex: 0 0 1.6em; padding-top: 3px; line-height: 1.5; }
+.hist-num { font-variant-numeric: tabular-nums; }
+.hist-check { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-top: 3px;
+  border: 1.5px solid var(--border-strong); border-radius: 3px; color: #fff; }
+.hist-check.on { background: var(--accent); border-color: var(--accent); }
+.hist-row.is-checked > .hist-text { color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--text-faint); }
+.hist-quote { margin: 4px 0; padding-left: 14px; border-left: 3px solid currentColor; font-size: 1.08em; }
+.hist-callout { display: flex; gap: .5rem; margin: 4px 0; padding: 10px 14px 10px 12px; border-radius: 4px;
+  background: var(--ed-gray-bg, var(--bg-elev)); }
+.hist-callout > .hist-text { flex: 1; min-width: 0; }
+.hist-callout-icon { flex: 0 0 auto; padding-top: 3px; font-size: 1.15em; line-height: 1.3; }
+.hist-callout-icon .hist-img-icon { width: 20px; height: 20px; }
+.hist-codebox { margin: 4px 0; }
+.hist-code-lang { margin-bottom: .2rem; font-size: .72rem; color: var(--text-muted); }
+.hist-code { margin: 0; padding: .75rem 1rem; border-radius: 4px; background: var(--bg-elev); font-family: var(--font-mono);
+  font-size: .85em; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
+.hist-equation { margin: 4px 0; text-align: center; }
+.hist-hr { margin: 11px 0; border: 0; border-top: 1px solid var(--border-strong); }
+
+/* Media and link cards. */
+.hist-figure { margin: 4px 0; }
+.hist-img { display: block; max-width: 100%; max-height: 180px; border-radius: 4px; object-fit: contain; }
+.hist-media-missing { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .7rem; border-radius: var(--radius);
+  background: var(--bg-elev); color: var(--text-muted); font-size: .85em; }
+.hist-caption { margin-top: .2rem; font-size: .82em; color: var(--text-muted); overflow-wrap: anywhere; }
+.hist-card { display: flex; align-items: center; gap: .55rem; max-width: 100%; margin: 4px 0; padding: .45rem .65rem;
+  border: 1px solid var(--border); border-radius: var(--radius); color: inherit; text-decoration: none; min-width: 0; }
+a.hist-card:hover { background: var(--hover-tint-soft); }
+.hist-card-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 20px;
+  color: var(--text-muted); }
+.hist-card-icon .hist-img-icon { width: 18px; height: 18px; }
+.hist-card-main { display: flex; flex-direction: column; min-width: 0; }
+.hist-card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.hist-card-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8em; color: var(--text-muted); }
+.hist-pagelink .hist-card-title { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.hist-table-wrap { margin: 4px 0; overflow-x: auto; }
+.hist-table { border-collapse: collapse; font-size: .92em; }
+.hist-table th, .hist-table td { min-width: 70px; padding: .3rem .55rem; border: 1px solid var(--border-strong);
+  text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.hist-table th { font-weight: 600; background: var(--bg-elev); }
+.hist-table .hist-cell-changed { background: color-mix(in srgb, var(--warning) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warning) 65%, transparent); }
+.hist-unknown { display: flex; align-items: baseline; gap: .5rem; padding: 3px 0; color: var(--text-muted); }
+.hist-unknown-tag { font-family: var(--font-mono); font-size: .75em; padding: .1em .4em; border-radius: 4px; background: var(--hover-tint); }
+.hist-img-icon { display: inline-block; width: 18px; height: 18px; object-fit: cover; border-radius: 3px; vertical-align: middle; }
+.hist-swatch { display: inline-block; width: 40px; height: 18px; border-radius: 3px; object-fit: cover; vertical-align: middle;
+  border: 1px solid var(--border); }
+.hist-swatch:not([class*="gradient-"]) { background: var(--bg-elev); }
+
+/* The page's own changes, above the blocks. */
+.hist-pc { display: flex; flex-direction: column; gap: .35rem; margin: 0 0 .5rem; padding: .6rem .8rem; list-style: none;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); font-size: .88rem; }
+.hist-pc li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .4rem; min-width: 0; overflow-wrap: anywhere; }
+.hist-pc-key { font-weight: 600; }
+.hist-pc-key::after { content: ":"; }
+.hist-pc li > .hist-pc-key:only-child::after { content: none; }
+.hist-arrow { color: var(--text-faint); }
+.hist-none { color: var(--text-faint); font-style: italic; }
+.hist-emoji { font-size: 1.1em; line-height: 1; }
+
+/* A phone: the list, and a session picked from it takes the whole dialog. */
+@media (max-width: 720px) {
+  .modal.history-modal { height: 92vh; height: 92dvh; }
+  .hist { grid-template-columns: minmax(0, 1fr); }
+  .hist-list { border-right: 0; background: none; }
+  .hist.show-detail .hist-list, .hist:not(.show-detail) .hist-detail { display: none; }
+  .hist-back { display: inline-flex; flex: 0 0 auto; }
+  .hist-head { flex-direction: column; gap: .45rem; padding: .7rem 1rem .5rem; }
+  .hist-controls { padding: 0 1rem .6rem; }
+  .hist-compare { flex: 1 1 100%; }
+  .hist-compare .select { flex: 1; font-size: 16px; } /* iOS zooms into anything smaller */
+  .hist-view { padding: .85rem 1rem 1.5rem; }
+  .hist-b { flex-wrap: wrap; row-gap: 0; margin-left: calc(var(--depth, 0) * 1rem); }
+  .hist-b-main { flex-basis: 100%; } /* the tags go below: beside it they squeeze a code block or a callout */
+  .hist-tags { max-width: none; justify-content: flex-start; padding: 0 0 4px; }
+}
 
 /* NOTE ON ORDER: this block is last in the file on purpose. It overrides the
    sections above it, and CSS resolves ties by document order. Keep new

@@ -336,12 +336,33 @@ App.settings = (() => {
     addInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); add(); } });
     addBtn.addEventListener("click", add);
 
+    // The demo the first-run welcome offers (app.welcome.js), for a second look
+    // or for anyone who started empty.
+    const demoBtn = h("button", { class: "btn", type: "button" }, h("span", { html: App.icon("plus", 15) }), "Add the demo");
+    demoBtn.addEventListener("click", async () => {
+      busyButton(demoBtn, true, "Adding…");
+      try {
+        await App.welcome.addDemo();
+        ctx.close();
+      } catch (e) {
+        if (ctx.gone()) return;
+        busyButton(demoBtn, false);
+        App.toast(`Could not add the demo: ${e.message}`, { kind: "error" });
+      }
+    });
+
     ctx.on("store:change", (e) => { if (e && e.workspaces && e.workspaces.size) render(); });
     render();
     return h("div", { class: "set-section" },
       sectionHead("Workspaces", "Each workspace is a page tree of its own. They appear in the sidebar in this order."),
       list,
-      h("div", { class: "set-ws-add" }, addInput, addBtn));
+      h("div", { class: "set-ws-add" }, addInput, addBtn),
+      h("div", { class: "set-group" },
+        h("div", { class: "setting-row" },
+          h("div", { class: "setting-text" },
+            h("div", { class: "setting-title", text: "Demo workspace" }),
+            h("div", { class: "setting-desc", text: "Sunny Acre Farm: example pages, databases and a website to try things out on. It is added as a workspace of its own; delete it when you are done." })),
+          demoBtn)));
   }
 
   // --- API token --------------------------------------------------------------------
@@ -701,6 +722,7 @@ App.settings = (() => {
         on(name, fn) { cleanups.push(App.bus.on(name, fn)); },
         listen(target, evt, fn) { target.addEventListener(evt, fn); cleanups.push(() => target.removeEventListener(evt, fn)); },
         every(ms, fn) { const t = setInterval(fn, ms); cleanups.push(() => clearInterval(t)); },
+        close: () => modal.close(),
         refreshNav,
       };
       content.replaceChildren(s.render(ctx));

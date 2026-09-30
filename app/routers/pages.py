@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from ..config import get_settings
 from ..database import DB
+from ..history import forget as forget_history
 from ..models import Block, File, Page, Site
 from ..schemas import ShareOut, ShareUpdate
 from ..security import CurrentUser
@@ -70,7 +71,7 @@ def purge_page(page_id: str, db: DB, user: CurrentUser) -> dict:
 
     The page rows stay behind as tombstones (``options.purged``, emptied, still
     ``deleted``) so other devices learn about it on their next pull and drop their
-    copies; blocks, files, and a published site go for real."""
+    copies; blocks, files, a published site and the page history go for real."""
     page = get_owned_page(db, page_id, user)
     tree = PageTree(db, page.workspace_id)
     if not tree.is_trashed(page.id):
@@ -83,6 +84,7 @@ def purge_page(page_id: str, db: DB, user: CurrentUser) -> dict:
             db.delete(f)
         for s in db.scalars(select(Site).where(Site.page_id.in_(chunk))).all():
             db.delete(s)
+        forget_history(db, chunk)
         for b in db.scalars(select(Block).where(Block.page_id.in_(chunk))).all():
             db.delete(b)
         for p in db.scalars(select(Page).where(Page.id.in_(chunk))).all():

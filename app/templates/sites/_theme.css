@@ -140,7 +140,7 @@ img.card-icon { width: 1.2em; height: 1.2em; }
 .site-footer .footer-text { color: var(--text-2); margin: 0 0 6px; white-space: pre-line; }
 .made-with { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); text-decoration: none; font-size: .8rem; }
 .made-with:hover { color: var(--text-2); }
-.made-with svg { width: 14px; height: 14px; }
+.made-with img { width: 16px; height: 16px; flex-shrink: 0; }
 
 .preview-flag {
   position: fixed; right: 12px; bottom: 12px; z-index: 50;

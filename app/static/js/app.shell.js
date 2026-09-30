@@ -297,12 +297,14 @@ App.shell = (() => {
         && !(window.getSelection() || { isCollapsed: true }).isCollapsed;
       // e.code as well: on a Mac, Option+N types "˜", and on many European
       // layouts the backslash needs AltGr.
-      if ((key === "k" || key === "p") && !e.altKey && !e.shiftKey) {
+      if ((key === "s" || key === "k" || key === "p") && !e.altKey && !e.shiftKey) {
         if (App.search && !inEditorSelection) { e.preventDefault(); App.search.open(); }
       } else if (key === "\\" || e.code === "Backslash") {
         e.preventDefault();
         toggleSidebar();
-      } else if (e.altKey && e.code === "KeyN") {
+      } else if ((key === "n" && !e.altKey && !e.shiftKey) || (e.altKey && e.code === "KeyN")) {
+        // Browsers keep Ctrl/Cmd+N for a new window and never deliver it
+        // here, so Alt+N stays; the desktop app gets the plain key.
         if (mode === "owner" && App.nav.newPage) { e.preventDefault(); App.nav.newPage(); }
       } else if (!isEditable(e.target) && !document.querySelector(".modal-backdrop")) {
         // Inside a text field the browser (or the editor) owns undo.

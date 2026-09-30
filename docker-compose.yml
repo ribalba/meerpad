@@ -96,6 +96,13 @@ services:
       # loopback addresses unless this is true. Developer machines only.
       FETCH_ALLOW_PRIVATE: ${FETCH_ALLOW_PRIVATE:-false}
       FETCH_TIMEOUT_SECONDS: ${FETCH_TIMEOUT_SECONDS:-20}
+
+      # Page history: edits group into a session that ends after this many
+      # minutes without one, or once it is the second number old. Finished
+      # sessions kept per page (app/history.py).
+      HISTORY_IDLE_MINUTES: ${HISTORY_IDLE_MINUTES:-10}
+      HISTORY_MAX_SESSION_MINUTES: ${HISTORY_MAX_SESSION_MINUTES:-60}
+      HISTORY_KEEP_SESSIONS: ${HISTORY_KEEP_SESSIONS:-200}
     volumes:
       # Every uploaded file and every Notion import in progress. Back this up
       # together with meerpad-db: pages point at files by id.

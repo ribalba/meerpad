@@ -83,6 +83,15 @@ def current_rev(db: Session) -> int:
     return db.execute(text("SELECT rev FROM sync_state WHERE id = 1")).scalar_one()
 
 
+def lock_writes(db: Session) -> None:
+    """Take the counter row's lock now rather than at the next flush.
+
+    It is the lock every write to a synced table takes anyway, and taking it
+    first keeps the lock order the same everywhere. A read-then-write that has
+    to be serialised (page history's "is a session open?") runs under it."""
+    db.execute(text("SELECT 1 FROM sync_state WHERE id = 1 FOR NO KEY UPDATE"))
+
+
 # --- Schema bootstrap ----------------------------------------------------------
 
 # Columns added to existing tables after that table's first release. create_all()

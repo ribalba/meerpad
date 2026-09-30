@@ -305,14 +305,15 @@ App.sidebar = (() => {
      heading with a click (remembered), the first rows shown and "N more" for
      the rest, the version underneath. */
   const SHORTCUTS = [
-    [key("K"), "Search"],
+    [key("S"), "Search"],
     ["↑ ↓", "Move in the page list"],
     ["Enter", "Open the page"],
     ["Esc", "Back to the page list"],
     ["→ ←", "Open, close a branch"],
     ["/", "Insert a block"],
     ["[[", "Link to a page"],
-    [key("Alt+N"), "New page"],
+    // A browser keeps Ctrl/Cmd+N for itself; only the desktop app gets it.
+    [key(window.meerpadDesktop ? "N" : "Alt+N"), "New page"],
     [key("Z"), "Undo"],
     ["Space", "Show the page, stay in the list"],
     ["Shift+↑ ↓", "Select blocks"],

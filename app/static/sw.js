@@ -26,7 +26,7 @@
 
    Bump VERSION whenever the precache list changes, to evict old caches. */
 
-const VERSION = "meerpad-v3";
+const VERSION = "meerpad-v5";
 
 // The local shell: small, so blocking install on it is fast and safe. Missing
 // entries (a module not deployed yet) are skipped rather than failing install.
@@ -58,7 +58,9 @@ const SHELL = [
   "/static/js/app.publish.js",
   "/static/js/app.import.js",
   "/static/js/app.settings.js",
+  "/static/js/app.welcome.js",
   "/static/js/app.trash.js",
+  "/static/js/app.history.js",
   "/static/js/app.boot.js",
   "/static/img/logo.png",
   "/static/img/favicon-32.png",

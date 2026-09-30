@@ -40,8 +40,22 @@ def _sites_subdomain_to_slug(conn: Connection) -> bool:
     return True
 
 
+def _users_add_welcomed_at(conn: Connection) -> bool:
+    """The first-run welcome (the offer of the demo workspace) is for accounts
+    created from now on: every account that already exists counts as welcomed,
+    so nobody who has been using meerpad is asked."""
+    added = not _column_exists(conn, "users", "welcomed_at")
+    if added:
+        conn.execute(text("ALTER TABLE users ADD COLUMN welcomed_at TIMESTAMP WITHOUT TIME ZONE"))
+    done = conn.execute(
+        text("UPDATE users SET welcomed_at = COALESCE(created_at, now() AT TIME ZONE 'utc') WHERE welcomed_at IS NULL")
+    )
+    return added or done.rowcount > 0
+
+
 MIGRATIONS: list[tuple[str, Callable[[Connection], bool]]] = [
     ("0001_sites_subdomain_to_slug", _sites_subdomain_to_slug),
+    ("0002_users_add_welcomed_at", _users_add_welcomed_at),
 ]
 
 

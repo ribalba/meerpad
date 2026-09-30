@@ -33,6 +33,8 @@ class UserOut(BaseModel):
     name: str | None = None
     timezone: str
     api_token: str | None = None
+    # Null until the first-run welcome is answered (routers/demo.py).
+    welcomed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -40,6 +42,8 @@ class UserOut(BaseModel):
 class ProfileUpdate(BaseModel):
     name: str | None = None
     timezone: str | None = None
+    # true: the first-run welcome was answered ("Start empty"). false asks again.
+    welcomed: bool | None = None
 
 
 # --- Sync ------------------------------------------------------------------

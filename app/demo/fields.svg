@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" width="1600" height="600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fd3f0"/>
+      <stop offset="0.7" stop-color="#e3f3f9"/>
+      <stop offset="1" stop-color="#fbf1d9"/>
+    </linearGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9cc47f"/>
+      <stop offset="1" stop-color="#7fae62"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6c9f4b"/>
+      <stop offset="1" stop-color="#4e7f36"/>
+    </linearGradient>
+    <pattern id="rows" width="34" height="600" patternUnits="userSpaceOnUse" patternTransform="skewX(-38)">
+      <rect width="34" height="600" fill="#d9b25a"/>
+      <rect width="9" height="600" fill="#c69a43"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="600" fill="url(#sky)"/>
+  <circle cx="1270" cy="150" r="70" fill="#ffd66b"/>
+  <circle cx="1270" cy="150" r="98" fill="#ffd66b" opacity="0.25"/>
+  <g fill="#ffffff" opacity="0.9">
+    <ellipse cx="300" cy="120" rx="90" ry="26"/>
+    <ellipse cx="360" cy="104" rx="60" ry="30"/>
+    <ellipse cx="930" cy="80" rx="110" ry="24"/>
+    <ellipse cx="990" cy="66" rx="64" ry="26"/>
+  </g>
+  <path d="M0 360 C 220 300, 420 330, 640 318 S 1060 280, 1280 310 S 1520 330, 1600 322 L1600 600 L0 600 Z" fill="url(#far)"/>
+  <path d="M0 420 C 260 380, 520 400, 760 392 L 600 600 L 0 600 Z" fill="url(#rows)"/>
+  <path d="M760 392 C 1000 384, 1300 398, 1600 380 L1600 600 L600 600 Z" fill="#8fbf5a"/>
+  <g transform="translate(1040 262)">
+    <rect x="0" y="40" width="150" height="96" fill="#b8412f"/>
+    <path d="M-12 44 L75 -10 L162 44 Z" fill="#8e2f22"/>
+    <rect x="55" y="76" width="40" height="60" fill="#f4e7d1"/>
+    <path d="M55 76 L95 136 M95 76 L55 136" stroke="#b8412f" stroke-width="5"/>
+    <rect x="20" y="58" width="22" height="18" fill="#f4e7d1"/>
+    <rect x="108" y="58" width="22" height="18" fill="#f4e7d1"/>
+  </g>
+  <g transform="translate(1210 300)">
+    <rect x="0" y="0" width="34" height="98" fill="#d7d2c8"/>
+    <ellipse cx="17" cy="0" rx="17" ry="10" fill="#a9a39a"/>
+  </g>
+  <g fill="#3f6f2a">
+    <circle cx="170" cy="330" r="34"/><rect x="164" y="340" width="12" height="44" fill="#6b4a2b"/>
+    <circle cx="240" cy="318" r="42"/><rect x="233" y="330" width="14" height="54" fill="#6b4a2b"/>
+    <circle cx="1450" cy="318" r="38"/><rect x="1444" y="330" width="12" height="46" fill="#6b4a2b"/>
+  </g>
+  <path d="M0 520 C 300 470, 700 500, 1000 488 S 1450 470, 1600 480 L1600 600 L0 600 Z" fill="url(#near)"/>
+  <g stroke="#7a5a3a" stroke-width="6" stroke-linecap="round">
+    <path d="M820 470 L1560 452"/>
+    <path d="M820 500 L1560 482"/>
+    <path d="M840 458 L840 520 M960 455 L960 517 M1080 452 L1080 514 M1200 449 L1200 511 M1320 446 L1320 508 M1440 443 L1440 505 M1550 440 L1550 502"/>
+  </g>
+  <g fill="#ffffff" stroke="#5b4636" stroke-width="2">
+    <ellipse cx="560" cy="532" rx="22" ry="16"/>
+    <ellipse cx="640" cy="548" rx="22" ry="16"/>
+  </g>
+  <g fill="#d8412f">
+    <path d="M572 516 l6 -8 l4 8 z"/>
+    <path d="M652 532 l6 -8 l4 8 z"/>
+  </g>
+  <g fill="#f2a93b">
+    <path d="M580 532 l10 3 l-10 3 z"/>
+    <path d="M660 548 l10 3 l-10 3 z"/>
+  </g>
+</svg>

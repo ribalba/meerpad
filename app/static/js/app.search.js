@@ -249,7 +249,7 @@ App.search = (() => {
         if (timer) render(); // typed faster than the debounce: answer what is in the box
         pick(active);
       }
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "p")) { e.preventDefault(); modal.close(); }
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "k" || e.key === "p")) { e.preventDefault(); modal.close(); }
     });
     render();
     setTimeout(() => input.focus(), 0);

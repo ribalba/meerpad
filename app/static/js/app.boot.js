@@ -107,7 +107,13 @@ window.App = window.App || {};
     }
   }
 
-  // --- 5. offline shell ------------------------------------------------------------------------------
+  // --- 5. a first start -------------------------------------------------------------------------------
+  // A new account is offered the demo workspace, once (app.welcome.js). Only
+  // on the word of a fresh /api/auth/me: the copy of `me` kept for offline
+  // starts does not know, and must not ask.
+  if (first.ok && me.welcomed_at === null) App.welcome.offer();
+
+  // --- 6. offline shell ------------------------------------------------------------------------------
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch((e) => console.debug("service worker not registered", e));
   }

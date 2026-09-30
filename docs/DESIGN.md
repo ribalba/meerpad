@@ -232,6 +232,10 @@ mutations.
 - `POST /api/auth/verify-code {email, code}`
 - `GET /api/auth/callback?token=`
 - `GET/PATCH /api/auth/me`
+  - `welcomed_at` is null until the account answers the first-run welcome,
+    which offers the demo workspace (below). The app asks once, after its
+    first pull. `PATCH {welcomed: true}` records "start empty"; `false`
+    asks again. Accounts that existed before the welcome count as welcomed.
 - `POST /api/auth/api-token`
 - `POST /api/auth/api-token/rotate`
 - `POST /api/auth/logout`
@@ -241,8 +245,18 @@ mutations.
 - `GET /api/pages/{id}/share` and `POST /api/pages/{id}/share {kind: "view"|"edit", enabled, rotate?}`
   return `{page_id, share_token, edit_token, share_url, edit_url, inherited_from}`.
 - `DELETE /api/pages/{id}` purges a page that is already in the trash,
-  together with its subtree.
+  together with its subtree, and its history.
 - `GET /api/pages/{id}/markdown` returns the page as Markdown.
+
+### Page history (§11)
+
+- `GET /api/pages/{id}/history` returns
+  `{page_id, idle_minutes, max_session_minutes, sessions: [session, ...]}`,
+  newest first.
+- `GET /api/pages/{id}/history/{session_id}` returns `{session, snapshot}`: the
+  page as that session left it.
+- `GET /api/pages/{id}/history/{session_id}/diff[?against=<session_id>]`
+  returns `{from, to, diff}`.
 
 ### Files
 
@@ -295,6 +309,18 @@ mutations.
   - While the import runs, `stats` also holds `phase`, `done` and `total`.
 - `GET /api/import` lists the 20 most recent imports.
 
+### Demo workspace
+
+- `POST /api/demo` adds the demo workspace to the account and returns
+  `{workspace_id, root_page_id}`. It also sets `welcomed_at`.
+  - The demo is Sunny Acre Farm (`app/demo`): pages that use every block
+    type, property type and view type above, with their files. Its dates
+    count from the day it is added.
+  - The rows are ordinary synced rows with an empty `clock`, so any edit
+    from a device wins. They reach the account's devices on the next pull.
+  - It publishes no site and turns on no share link.
+  - Each call adds another copy.
+
 ## 8. Sharing
 
 A page's `share_token` link lets anyone view the page and every live page
@@ -343,3 +369,72 @@ folder.
 - Markdown tables become `table` blocks.
 - Each import lands under one parent page, normally the workspace root. The
   job runs in the background and commits in batches.
+
+## 11. Page history
+
+Edits to a page are grouped into **sessions**, and the page is kept as each
+session left it, so its history shows what every session changed
+(`app/history.py`).
+
+- An edit is a write through sync (§5) that changes a value of the page's
+  `title`, `icon`, `cover`, `kind`, `props`, `schema` or `options`, or any
+  field of one of its blocks. Moving, reordering, favouriting and trashing the
+  page itself are not edits of it. A block moved to another page is an edit of
+  both pages. Edit-link visitors' edits count too.
+- A session ends after `HISTORY_IDLE_MINUTES` (10) without an edit, or once it
+  is `HISTORY_MAX_SESSION_MINUTES` (60) old. The next edit starts a new one.
+  Times are the server's: offline edits land in the session they sync in.
+- A page has at most one open session, its newest. Its end state is the live
+  page. It is snapshotted when the next session starts, before that session's
+  first edit is written. A session whose snapshot equals the one before it is
+  dropped then.
+- A page edited before its history began gets a **baseline**: the page as it
+  was, kept as the version its first session is compared with. After the
+  newest `HISTORY_KEEP_SESSIONS` (200) finished sessions, older ones are
+  dropped, and the oldest one kept becomes the baseline.
+- History is the owner's alone: share-link visitors never read it. Emptying
+  the trash deletes it with the page.
+
+```
+session  { id, started_at, ended_at, editors: [email | "Someone with the edit link"],
+           baseline, current, active, stats: {added, removed, changed, moved, page} | null }
+snapshot { page: { title, icon, cover, kind, props, schema, options },
+           blocks: [ { id, parent_id, type, text, props, position, depth } ] }
+diff     { page: [page_change], blocks: [block_entry], stats }
+```
+
+- `current`: the newest session, whose end state is the live page. `active`:
+  an edit now would still join it. `stats` counts the changes against the
+  session before it; it is null for a baseline.
+- `snapshot.blocks` hold the live blocks in document order (depth first,
+  siblings by `position`), with their nesting `depth`. A block under a missing
+  parent is left out, as in the editor.
+- A diff reads from `from` (the older side) to `to` (the newer). Without
+  `against`, `from` is the session before; with it, the two are put in time
+  order. `from: null` compares with an empty page, which is what the first
+  session of a page made in it, and a baseline, get.
+- `page_change` is one of:
+  - `{field: "title", from, to, segments}`
+  - `{field: "icon" | "cover" | "kind", from, to}`
+  - `{field: "props", changes: [{key, from, to}]}` (database row values,
+    keyed by property id)
+  - `{field: "schema", changes: [{kind: "property" | "view", change: "added" |
+    "removed" | "renamed" | "changed", id, name, from?, to?}]}`
+  - `{field: "options", changes: [{key: "full_width" | "font" | "small_text",
+    from, to}]}`
+  - Empty values (`null`, `""`, `false`, `[]`, `{}`) and an absent key read
+    the same.
+- `block_entry` is `{id, type, depth, status, moved, text, props, old,
+  segments}`, in the newer version's document order with each removed block
+  where it was:
+  - `status` is `same`, `added`, `removed`, or `changed` (type, text or props
+    differ).
+  - `text` and `props` are the block as it is in `to` (a removed block: as it
+    was).
+  - `old` is `{type, text, props}` from `from`, for `changed` only.
+  - `moved` means the block changed parent or left its place among the
+    others. A block that only travels along with its parent is not moved.
+  - `segments` is the word-level text diff, when the text changed:
+    `[{op: "same" | "added" | "removed", text}]`.
+- A database's history covers its schema. Its rows are pages with histories
+  of their own.

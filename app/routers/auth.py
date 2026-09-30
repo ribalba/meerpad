@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from ..config import get_settings
 from ..database import DB
 from ..emailer import send_login_link
+from ..models import utcnow
 from ..schemas import LoginRequest, ProfileUpdate, UserOut, VerifyCodeRequest
 from ..security import (
     SESSION_COOKIE,
@@ -99,6 +100,10 @@ def update_me(payload: ProfileUpdate, db: DB, user: CurrentUser) -> UserOut:
         user.timezone = data["timezone"]
     if "name" in data:
         user.name = (data["name"] or "").strip() or None
+    if data.get("welcomed") is True:
+        user.welcomed_at = user.welcomed_at or utcnow()
+    elif data.get("welcomed") is False:
+        user.welcomed_at = None
     db.commit()
     db.refresh(user)
     return user

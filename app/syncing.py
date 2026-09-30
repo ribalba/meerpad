@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
+from . import history
 from .database import current_rev
 from .models import Block, Page, User, Workspace, utcnow
 from .schemas import SyncMutation
@@ -87,8 +88,11 @@ def clock_key(dt: datetime) -> str:
     return norm(dt).isoformat(timespec="microseconds")
 
 
-def lww(row, data: dict, ts: datetime, fields) -> bool:
-    """Write each field in ``data`` whose last write is not newer than ``ts``."""
+def lww(row, data: dict, ts: datetime, fields, edits: set | None = None) -> bool:
+    """Write each field in ``data`` whose last write is not newer than ``ts``.
+
+    ``edits`` collects the fields written with a value that differs from the old
+    one (a client may resend a field unchanged)."""
     clock = dict(row.clock or {})
     key = clock_key(ts)
     changed = False
@@ -98,6 +102,8 @@ def lww(row, data: dict, ts: datetime, fields) -> bool:
         prev = clock.get(f)
         if prev is not None and prev > key:
             continue
+        if edits is not None and getattr(row, f) != data[f]:
+            edits.add(f)
         setattr(row, f, data[f])
         clock[f] = key
         changed = True
@@ -262,7 +268,10 @@ def _apply_page(db, m, data, ts, scope: Scope) -> str:
 
     old_ws = page.workspace_id
     was_deleted = page.deleted
-    changed = lww(page, data, ts, FIELDS["page"])
+    edits: set[str] = set()
+    changed = lww(page, data, ts, FIELDS["page"], edits)
+    if is_new or not edits.isdisjoint(history.PAGE_FIELDS):
+        history.touch(db, page.id, scope.actor)
     if changed:
         page.last_edited_by = scope.actor
         if page.deleted != was_deleted:
@@ -333,7 +342,12 @@ def _apply_block(db, m, data, ts, scope: Scope) -> str:
             cur, hops = db.get(Block, cur.parent_id), hops + 1
 
     old_page = blk.page_id
-    changed = lww(blk, data, ts, FIELDS["block"])
+    edits: set[str] = set()
+    changed = lww(blk, data, ts, FIELDS["block"], edits)
+    if is_new or edits:
+        # A block moved to another page is an edit of both.
+        for pid in dict.fromkeys((old_page, blk.page_id)):
+            history.touch(db, pid, scope.actor)
     if changed and not is_new and blk.page_id != old_page:
         _cascade_block_page(db, blk, old_page, ts)
     return "applied" if changed or is_new else "stale"

@@ -22,7 +22,8 @@ handles · workspaces, each a page tree of its own · databases with table, boar
 gallery and Gantt views · offline first, synced across devices, merged field by field · share links to
 view or to edit · publish any page as a website, at `/v/<name>` or on your own domain · drag
 files in, PDFs preview inline · paste a link to an image or PDF and keep a copy · import from
-Notion, databases included · a desktop app with sign-in by deep link · light + dark.
+Notion, databases included · page history by editing session, with what each one changed ·
+a desktop app with sign-in by deep link · light + dark.
 
 It is one server and a browser app, the way meerato is:
 
@@ -71,6 +72,12 @@ opening a workspace opens its root page. A new account starts with the workspace
 moves everything under it. Deleting puts a page and its subtree in the trash, from which it
 can be restored until the trash is emptied.
 
+On its first start, a new account is offered a **demo workspace**: Sunny Acre Farm, a
+made-up farm with a page for each part of meerpad. It has a tour, every kind of block,
+databases as a board, a gallery and a Gantt chart, files, code and a diagram, and a shop page
+ready to publish. It is an ordinary workspace, so delete it when you are done. Settings,
+Workspaces adds it again at any time.
+
 ### Blocks
 
 A page is a list of blocks, and blocks nest (list items under list items, content inside a
@@ -99,6 +106,8 @@ Emphasis needs a word boundary, so `snake_case` stays literal.
 
 | Keys | |
 | --- | --- |
+| `Ctrl+S` (or `Ctrl+K`, `Ctrl+P`) | Search |
+| `Ctrl+N` in the desktop app, `Ctrl+Alt+N` in a browser | New page |
 | `Ctrl+B`, `Ctrl+I` | Bold, italic |
 | `Ctrl+E` | Inline code |
 | `Ctrl+Shift+S`, `Ctrl+Shift+H` | Strikethrough, highlight |
@@ -138,6 +147,15 @@ move it, drag an end to stretch it, colour by status), with its own filters, sor
 hidden columns. Every row opens as a page with room for notes, and a database can be shown
 inline on another page. "Gantt chart" in the `/` menu and the sidebar's `+` menu creates a
 project plan ready to fill in (Task, Dates, Status, Owner, Progress).
+
+### Page history
+
+"Page history" in a page's `…` menu lists its editing sessions, newest first. Edits a few
+minutes apart are one session; ten quiet minutes, or an hour of editing, end it. Each
+session shows what it changed against the one before: blocks added, removed, rewritten
+(word by word) or moved, and the title, icon, cover and properties. Any two sessions can be
+compared, and any one shown as the page looked when it ended. Edits through an edit link
+count too, and say so.
 
 ### Sharing
 
@@ -230,6 +248,8 @@ is optional on a laptop; [.env.example](.env.example) explains each.
 | `PUBLIC_IP` | empty | Shown in the publish dialog as the custom-domain A record. Never checked. |
 | `FETCH_ALLOW_PRIVATE` | false | Let "fetch this pasted link" reach private addresses. Development only. |
 | `FETCH_TIMEOUT_SECONDS` | 20 | |
+| `HISTORY_IDLE_MINUTES`, `HISTORY_MAX_SESSION_MINUTES` | 10, 60 | A page's editing session ends after this long without an edit, or at this age. |
+| `HISTORY_KEEP_SESSIONS` | 200 | Finished sessions kept per page; older ones are dropped. |
 
 Container topology, read by compose only: `MEERPAD_BIND` / `MEERPAD_PORT` (127.0.0.1, 8050),
 `MEERPAD_DB_PORT` (5435), `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`

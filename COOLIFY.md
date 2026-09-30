@@ -39,6 +39,7 @@ In the resource's **Environment Variables** tab:
 | `PUBLIC_IP` | This server's public IPv4. The publish dialog shows it as the address to point a custom domain's A record at. Purely informational: nothing checks DNS. |
 | `DEFAULT_WORKSPACES` | Default `Work,Private`: the workspaces a new account starts with. |
 | `MAX_UPLOAD_BYTES`, `MAX_IMPORT_BYTES` | Default 50 MB per file, 4 GB per Notion export. See [Large Notion imports](#large-notion-imports) for the proxy's side of the second. |
+| `HISTORY_IDLE_MINUTES`, `HISTORY_MAX_SESSION_MINUTES`, `HISTORY_KEEP_SESSIONS` | Default 10, 60 and 200: a page's edits group into a session that ends after 10 quiet minutes or at an hour, and 200 finished sessions are kept per page. |
 | `LOGIN_*`, `SESSION_TTL_MINUTES`, `VERIFY_RATE_MAX`, `FETCH_TIMEOUT_SECONDS` | Optional; [`.env.example`](.env.example) explains each. |
 
 `FETCH_ALLOW_PRIVATE` is not a variable on this stack: the compose file pins it

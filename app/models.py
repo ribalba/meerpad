@@ -60,6 +60,9 @@ class User(Base):
     # Secret for the token API (?token=…): scripts, the Notion import CLI.
     api_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # When the account answered the first-run welcome (the offer of the demo
+    # workspace, app/demo). Null until then: the app asks on its next start.
+    welcomed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class LoginToken(Base):
@@ -194,6 +197,35 @@ class Block(SyncedMixin, Base):
     text: Mapped[str] = mapped_column(Text, default="", nullable=False)
     props: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
     position: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+
+# --- Page history ----------------------------------------------------------------
+
+
+class PageVersion(Base):
+    """One editing session of a page, and the page as that session left it.
+
+    Server-side only (not synced, no ``rev``); app/history.py writes it. A page
+    has at most one open session, its newest: its end state is the live page,
+    so it has no snapshot until the next session starts and closes it."""
+
+    __tablename__ = "page_versions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    page_id: Mapped[str] = mapped_column(ForeignKey("pages.id"), index=True, nullable=False)
+    # Server time of the session's first and last edit.
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Who edited (emails, or the edit link's label), in order of first edit.
+    editors: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # The earliest version held, with nothing before it to compare against: the
+    # page as it was when its history began, or the oldest one kept.
+    baseline: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # {"page": {...}, "blocks": [...]}; see history.snapshot(). Set on closing.
+    snapshot: Mapped[dict | None] = mapped_column(JSONType)
+    # Change counts against the previous version, set on closing.
+    stats: Mapped[dict | None] = mapped_column(JSONType)
 
 
 # --- Files -------------------------------------------------------------------

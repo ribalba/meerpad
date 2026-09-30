@@ -77,6 +77,15 @@ class Settings(BaseSettings):
     fetch_allow_private: bool = False
     fetch_timeout_seconds: float = 20.0
 
+    # --- Page history -----------------------------------------------------------
+    # Edits to a page are grouped into sessions, and the page is snapshotted as
+    # each session left it (app/history.py). A session ends after this many
+    # minutes without an edit, or once it is history_max_session_minutes old.
+    history_idle_minutes: int = 10
+    history_max_session_minutes: int = 60
+    # Finished sessions kept per page; older ones are dropped, oldest first.
+    history_keep_sessions: int = 200
+
     @property
     def app_host(self) -> str:
         """Host name of the app itself, lowercased, without port."""

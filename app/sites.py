@@ -34,6 +34,7 @@ embed allow-list, and forms and ``<base>`` are off. Files are only served if
 they belong to a live page of the site, the same rule a share link uses.
 """
 
+import base64
 import ipaddress
 import re
 import secrets
@@ -107,6 +108,11 @@ _env = Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+# The meerkat in the "Made with meerpad" footer, inlined: on a custom domain every
+# path goes to the site, so the app's /static files are out of reach there.
+_env.globals["made_with_logo"] = "data:image/png;base64," + base64.b64encode(
+    (Path(__file__).resolve().parent / "static" / "img" / "favicon-32.png").read_bytes()
+).decode("ascii")
 
 
 # --- Hosts ---------------------------------------------------------------------
