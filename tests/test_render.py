@@ -78,6 +78,10 @@ def node(type_, text="", children=None, **props):
     return BlockNode(id=type_ + text[:5], type=type_, text=text, props=props, children=children or [])
 
 
+def cell(*children):
+    return node("grid_cell", "", list(children))
+
+
 def render(*nodes, ctx=None):
     ctx = ctx or FakeCtx()
     return str(render_blocks(list(nodes), ctx)), ctx
@@ -356,13 +360,86 @@ def test_unknown_block_type_keeps_its_text():
 def test_every_documented_block_type_renders():
     kinds = ["paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list", "numbered_list", "to_do",
              "toggle", "quote", "callout", "code", "divider", "image", "file", "bookmark", "embed", "table",
-             "page", "database", "equation"]
+             "page", "database", "equation", "grid", "grid_cell"]
     props = {"image": {"file_id": "f-img"}, "file": {"file_id": "f-pdf", "name": "a.txt"},
              "bookmark": {"url": "https://a.example"}, "embed": {"url": "https://youtu.be/dQw4w9WgXcQ"},
              "table": {"rows": [["a"]]}, "page": {"page_id": "p-child"}, "database": {"page_id": "p-db"}}
+    # A grid and a cell show their content; with none there is nothing to show.
+    children = {"grid": [cell(node("paragraph", "text"))], "grid_cell": [node("paragraph", "text")]}
     for kind in kinds:
-        html, _ = render(node(kind, "text", **props.get(kind, {})))
+        html, _ = render(node(kind, "text", children.get(kind), **props.get(kind, {})))
         assert html.strip(), kind
+
+
+# --- Grids -------------------------------------------------------------------------
+
+
+def test_grid_cells_in_order():
+    html, ctx = render(node("grid", "", [
+        cell(node("image", "Map", file_id="f-img")),
+        cell(node("heading_2", "Beside it"), node("paragraph", "Words")),
+        cell(node("paragraph", "Next row")),
+    ], columns=2))
+    assert html == (
+        '<div class="grid grid-cols-2">'
+        '<div class="grid-cell"><figure class="image"><img src="/_files/f-img/meadow.jpg" alt="Map" loading="lazy" '
+        'decoding="async"><figcaption>Map</figcaption></figure></div>'
+        '<div class="grid-cell"><h3 id="beside-it" class="heading">Beside it'
+        '<a class="anchor" href="#beside-it" aria-label="Link to this section">#</a></h3><p>Words</p></div>'
+        '<div class="grid-cell"><p>Next row</p></div>'
+        "</div>"
+    )
+    assert [h["id"] for h in ctx.headings] == ["beside-it"]  # a heading in a cell is in the contents
+
+
+def test_empty_cells_keep_their_slot_and_other_children_take_one():
+    html, _ = render(node("grid", "", [
+        cell(), node("paragraph", "loose"), cell(node("paragraph")), cell(node("paragraph", "last")),
+    ], columns=2))
+    assert html == (
+        '<div class="grid grid-cols-2"><div class="grid-cell"></div><div class="grid-cell"><p>loose</p></div>'
+        '<div class="grid-cell"></div><div class="grid-cell"><p>last</p></div></div>'
+    )
+    assert render(node("grid", "", [], columns=2))[0] == ""  # no cells, nothing to show
+
+
+@pytest.mark.parametrize("props,columns", [
+    ({"columns": 3}, 3), ({"columns": 0}, 1), ({"columns": -2}, 1), ({"columns": 7}, 6),
+    ({"columns": "3"}, 2), ({"columns": True}, 2), ({}, 2), ({"columns": None}, 2),
+    ({"columns": 2.0}, 2), ({"columns": 4.0}, 4), ({"columns": 2.5}, 2), ({"columns": float("nan")}, 2),
+])
+def test_grid_columns_are_clamped(props, columns):
+    html, _ = render(node("grid", "", [cell(node("paragraph", "x"))], **props))
+    assert html.startswith(f'<div class="grid grid-cols-{columns}">')
+
+
+def test_blank_paragraphs_at_a_cells_edges_are_dropped():
+    html, _ = render(node("grid", "", [
+        cell(node("paragraph"), node("paragraph", "a"), node("paragraph"), node("paragraph", "b"), node("paragraph")),
+    ], columns=1))
+    assert html == (
+        '<div class="grid grid-cols-1"><div class="grid-cell"><p>a</p>'
+        '<div class="blank" aria-hidden="true"></div><p>b</p></div></div>'
+    )
+
+
+def test_nested_grid_color_and_a_stray_cell():
+    html, _ = render(
+        node("grid", "", [
+            cell(node("grid", "", [cell(node("paragraph", "inner"))], columns=1)),
+            cell(),
+        ], columns=2, color="yellow_bg"),
+        node("grid", "", [cell(node("paragraph", "x"))], color='red" onclick="x'),
+    )
+    assert html.startswith(
+        '<div class="grid grid-cols-2 bg-yellow"><div class="grid-cell">'
+        '<div class="grid grid-cols-1"><div class="grid-cell"><p>inner</p></div></div></div>'
+    )
+    assert '<div class="grid grid-cols-2"><div class="grid-cell"><p>x</p>' in html and "onclick" not in html
+    # A cell outside a grid shows its content, and nothing else.
+    assert render(cell(node("paragraph"), node("paragraph", "alone"), node("bulleted_list", "item")))[0] == (
+        '<p>alone</p><ul class="ul-disc"><li>item</li></ul>'
+    )
 
 
 # --- Gantt views -------------------------------------------------------------------
@@ -509,8 +586,9 @@ def test_script_in_every_text_field_is_escaped():
         node("callout", evil), node("code", evil), node("image", evil, file_id="f-img"),
         node("bookmark", evil, url="https://a.example", title=evil, description=evil),
         node("table", rows=[[evil]]), node("equation", evil), node("to_do", evil), node("bulleted_list", evil),
+        node("grid", evil, [cell(node("paragraph", evil)), node("quote", evil)], columns=evil, color=evil),
     )
-    assert "<script" not in html
+    assert "<script" not in html and "grid-cols-2" in html
 
 
 # --- Helpers ------------------------------------------------------------------------

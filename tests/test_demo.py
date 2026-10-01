@@ -13,7 +13,7 @@ pytestmark = needs_db
 BLOCK_TYPES = {
     "paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list", "numbered_list", "to_do", "toggle",
     "quote", "callout", "code", "divider", "image", "file", "bookmark", "embed", "table", "page", "database",
-    "equation",
+    "equation", "grid", "grid_cell",
 }
 PROPERTY_TYPES = {
     "title", "text", "number", "select", "multi_select", "status", "date", "checkbox", "url", "email", "phone",

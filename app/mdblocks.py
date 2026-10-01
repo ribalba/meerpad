@@ -18,7 +18,11 @@ back:
 * ``>`` quotes, fenced code with a language, ``---`` dividers, ``$$`` equations;
 * GFM pipe tables, standalone ``![alt](src)`` images;
 * Notion's HTML leftovers: ``<aside>`` for callouts and
-  ``<details><summary>`` for toggles. Any other HTML stays as text.
+  ``<details><summary>`` for toggles;
+* and one container of meerpad's own: ``<grid columns="N">`` holding a
+  ``<cell>`` per cell, for grids (DESIGN §2, Grids).
+
+Any other HTML stays as text.
 
 Why not a CommonMark library: Notion's output is not quite CommonMark (a
 two-space gap after ``- [ ]``, soft breaks written as unindented lines inside
@@ -221,6 +225,9 @@ SUMMARY_RE = re.compile(r"<summary>(.*?)</summary>", re.DOTALL | re.IGNORECASE)
 TAG_RE = re.compile(r"</?(?:strong|b|em|i|u|s|del|code|mark|span|h[1-6])(?:\s[^>]*)?>", re.IGNORECASE)
 CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")
 BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+# <grid columns="3">, quoted or not. Leading zeros are dropped here so that
+# the digits left say how big the number is.
+COLUMNS_RE = re.compile(r"\bcolumns\s*=\s*[\"']?0*(\d+)", re.IGNORECASE)
 
 
 def _indent(line: str) -> int:
@@ -277,7 +284,9 @@ def _starts_block(lines: list[str], i: int) -> bool:
     return bool(
         FENCE_RE.match(s)
         or s.startswith("$$")
-        or low.startswith(("<aside", "<details"))
+        # A cell's tags too, so that inside a grid the blocks outside every
+        # cell end where the next cell begins (or a stray closing tag is).
+        or low.startswith(("<aside", "<details", "<grid", "<cell", "</cell"))
         or HEADING_RE.match(s)
         or HR_RE.match(s)
         or TODO_RE.match(s)
@@ -340,7 +349,9 @@ def _merge_leading_paragraphs(blocks: list[BlockNode]) -> tuple[str, list[BlockN
     return "\n\n".join(parts), blocks
 
 
-def _parse(lines: list[str]) -> list[BlockNode]:
+def _parse(lines: list[str], cells: bool = False) -> list[BlockNode]:
+    """Blocks from ``lines``. ``cells`` is set for the inside of a grid, where
+    a ``<cell>`` section is a ``grid_cell``; anywhere else its tags are text."""
     out: list[BlockNode] = []
     i = 0
     n = len(lines)
@@ -407,6 +418,23 @@ def _parse(lines: list[str]) -> list[BlockNode]:
                 joined = joined[:m2.start()] + joined[m2.end():]
             children = _parse(_dedent_block(joined.split("\n")))
             out.append(BlockNode("toggle", summary, {}, children))
+            continue
+
+        if low.startswith("<grid"):
+            inner, i = _html_section(lines, i, "grid")
+            out.append(_grid(s, inner))
+            continue
+
+        if cells and low.startswith("<cell"):
+            inner, i = _html_section(lines, i, "cell")
+            out.append(BlockNode("grid_cell", "", {}, _parse(_dedent_block(inner))))
+            continue
+
+        if cells and low.startswith("</cell"):
+            # A cell that never opened (its <cell> deleted by hand). The tag
+            # closes nothing here, and kept as text it would close the cell
+            # it is written into.
+            i += 1
             continue
 
         if _is_table_start(lines, i):
@@ -498,6 +526,34 @@ def _list_item(lines: list[str], i: int, ind: int, item: BlockNode) -> int:
     return last
 
 
+def _grid(first: str, inner: list[str]) -> BlockNode:
+    """A grid from its opening line and the lines up to ``</grid>``.
+
+    Blocks between the cells (outside every ``<cell>``) make a cell of their
+    own, and a grid without ``columns`` has as many as it has cells (DESIGN
+    §2, Grids). The cells are found by parsing rather than by looking for
+    ``<cell>`` lines, so a nested grid, toggle or code block between them
+    stays in one piece."""
+    cells: list[BlockNode] = []
+    loose: BlockNode | None = None  # the cell the blocks between cells go into
+    for b in _parse(_dedent_block(inner), cells=True):
+        if b.type == "grid_cell":
+            cells.append(b)
+            loose = None
+        elif loose is None:
+            loose = BlockNode("grid_cell", "", {}, [b])
+            cells.append(loose)
+        else:
+            loose.children.append(b)
+    m = COLUMNS_RE.search(first.split(">", 1)[0])
+    if m is None:
+        count = len(cells)
+    else:
+        # Three digits are past 6 already, and a few thousand make int() raise.
+        count = int(m.group(1)) if len(m.group(1)) < 3 else 6
+    return BlockNode("grid", "", {"columns": min(max(count, 1), 6)}, cells)
+
+
 def parse_markdown(md: str) -> list[BlockNode]:
     """Parse a Markdown document into block trees (see the module docstring)."""
     lines = (md or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
@@ -552,6 +608,16 @@ def _media_url(props: dict) -> str:
     return str(props.get("url") or "")
 
 
+def grid_columns(props: dict) -> int:
+    """A grid's column count (DESIGN §2): ``columns`` clamped to 1 to 6, and 2
+    when it is not a whole number (a bool is not one, 3.0 is). The same rule
+    as app/render.py and app.mdblocks.js ``gridColumns``."""
+    v = props.get("columns") if isinstance(props, dict) else None
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return min(max(v, 1), 6) if isinstance(v, int) and not isinstance(v, bool) else 2
+
+
 def _render(node: BlockNode, number: int, titles: TitleLookup | None) -> str:
     t = node.type
     text = node.text or ""
@@ -589,6 +655,17 @@ def _render(node: BlockNode, number: int, titles: TitleLookup | None) -> str:
         if node.children:
             md += "\n\n" + blocks_to_markdown(node.children, titles).rstrip("\n")
         return md + "\n</aside>"
+    if t == "grid":
+        # Each tag on a line of its own, the content not indented. A child
+        # that is not a cell is written as a cell holding it.
+        cells = []
+        for c in node.children:
+            body = blocks_to_markdown(c.children if c.type == "grid_cell" else [c], titles).rstrip("\n")
+            cells.append(f"<cell>\n\n{body}\n\n</cell>" if body else "<cell>\n</cell>")
+        return "\n".join([f'<grid columns="{grid_columns(props)}">', *cells, "</grid>"])
+    if t == "grid_cell":
+        # Only a grid writes a cell's tags; a cell on its own is its content.
+        return blocks_to_markdown(node.children, titles).rstrip("\n")
     if t == "code":
         fence = "```"
         while fence in text:

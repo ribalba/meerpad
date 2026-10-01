@@ -100,6 +100,7 @@
 }
 {% endblock %}
 {% block body %}
+{% if site.show_header %}
 <header class="land-nav">
 <div class="land-nav-inner">
 <a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
@@ -112,6 +113,7 @@
 {% endif %}
 </div>
 </header>
+{% endif %}
 {% if page.is_root %}
 <main>
 <section class="hero {{ 'media' if page.cover else 'plain' }}">
@@ -162,7 +164,8 @@
 {% endif %}
 </main>
 {% else %}
-{% if breadcrumbs|length > 1 %}
+{# The header's brand links home; without the header the crumbs do, also one level down. #}
+{% if breadcrumbs|length > 1 or (breadcrumbs and not site.show_header) %}
 <div class="crumb-row">{{ m.crumbs(breadcrumbs, page) }}</div>
 {% endif %}
 {% if page.cover %}

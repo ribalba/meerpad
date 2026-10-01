@@ -24,7 +24,7 @@ App.history = (() => {
     bulleted_list: "Bulleted list", numbered_list: "Numbered list", to_do: "To-do", toggle: "Toggle",
     quote: "Quote", callout: "Callout", code: "Code", divider: "Divider", image: "Image", file: "File",
     bookmark: "Bookmark", embed: "Embed", table: "Table", page: "Page link", database: "Database",
-    equation: "Equation",
+    equation: "Equation", grid: "Grid", grid_cell: "Grid cell",
   };
   const COLORS = new Set(["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"]);
   const FONTS = { sans: "Default", serif: "Serif", mono: "Mono" };
@@ -265,6 +265,11 @@ App.history = (() => {
       }
       case "table": return tableNode(p, ctx.oldProps);
       case "page": case "database": return linkCard(p.page_id, b.type);
+      // Containers: what they hold follows them, one level in.
+      case "grid":
+        return App.el("div", { class: "hist-unknown" }, App.el("span", { class: "hist-unknown-tag", text: "Grid" }),
+          App.el("span", { text: plural(App.mdblocks.gridColumns(p), "column") }));
+      case "grid_cell": return App.el("div", { class: "hist-unknown" }, App.el("span", { class: "hist-unknown-tag", text: "Cell" }));
       default:
         return App.el("div", { class: "hist-unknown" },
           App.el("span", { class: "hist-unknown-tag", text: b.type || "block" }),

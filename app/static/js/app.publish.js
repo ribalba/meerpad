@@ -125,7 +125,7 @@ App.publish = (() => {
       slug: "",
       subTouched: false,
       domain: "",
-      options: { title: "", description: "", footer: "", show_nav: true, accent: DEFAULT_ACCENT },
+      options: { title: "", description: "", footer: "", show_header: true, show_nav: true, accent: DEFAULT_ACCENT },
       saving: false,
       subOk: null,
       domainOk: null,
@@ -204,6 +204,7 @@ App.publish = (() => {
           title: o.title || "",
           description: o.description || "",
           footer: o.footer || "",
+          show_header: o.show_header !== false,
           show_nav: o.show_nav !== false,
           accent: HEX_RE.test(o.accent || "") ? o.accent.toLowerCase() : DEFAULT_ACCENT,
         };
@@ -429,6 +430,8 @@ App.publish = (() => {
       ui.footer.addEventListener("input", () => { o.footer = ui.footer.value; clearError("options"); });
       ui.footer.addEventListener("keydown", enterSubmits);
 
+      const header = h("input", { type: "checkbox", checked: o.show_header });
+      header.addEventListener("change", () => { o.show_header = header.checked; });
       const nav = h("input", { type: "checkbox", checked: o.show_nav });
       nav.addEventListener("change", () => { o.show_nav = nav.checked; });
 
@@ -442,6 +445,11 @@ App.publish = (() => {
         h("div", { class: "field" },
           h("label", { class: "field-label", text: "Footer text" }), ui.footer),
         h("div", { class: "pub-option-rows" },
+          h("div", { class: "setting-row" },
+            h("div", { class: "setting-text" },
+              h("div", { class: "setting-title", text: "Show header" }),
+              h("div", { class: "setting-desc", text: "The bar along the top with the site title. In the Minimal and Landing page templates it also holds the navigation links." })),
+            h("label", { class: "switch" }, header, h("span", { class: "switch-track" }))),
           h("div", { class: "setting-row" },
             h("div", { class: "setting-text" },
               h("div", { class: "setting-title", text: "Show navigation" }),
@@ -635,6 +643,7 @@ App.publish = (() => {
           title: o.title.trim(),
           description: o.description.trim(),
           footer: o.footer.trim(),
+          show_header: Boolean(o.show_header),
           show_nav: Boolean(o.show_nav),
           accent: HEX_RE.test(o.accent) ? o.accent.toLowerCase() : DEFAULT_ACCENT,
         },

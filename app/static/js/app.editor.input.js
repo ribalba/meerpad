@@ -584,6 +584,13 @@
   // --- links, checkboxes, toggles -------------------------------------------------------------
   P.onBlocksMouseDown = function (e) {
     if (e.button !== 0) return;
+    // A cell's empty space (below its blocks, or an empty cell): write there,
+    // as below the last block of the page.
+    const own = this.blockOf(e.target);
+    if (own && own._b.type === "grid_cell") {
+      if (!this.readOnly) { e.preventDefault(); this.focusCellEnd(own); }
+      return;
+    }
     if (e.target.closest && e.target.closest(".blk-text, .tbl-cell") && !this._pressing) {
       this._pressing = true;
       // A press that turns into a native text drag ends in dragend, not
@@ -722,7 +729,11 @@
     if (extend) { this.extendSelection(dir); return; }
     const cur = this.els.get(this.selHead);
     if (!cur) return;
-    const next = dir < 0 ? this.prevVisible(cur) : this.nextVisible(cur);
+    // Cells are passed through: down from a grid is its first block, up
+    // from a cell's first block the last block of the cell before.
+    const step = (el) => (dir < 0 ? this.prevVisible(el) : this.nextVisible(el));
+    let next = step(cur);
+    while (next && next._b.type === "grid_cell") next = step(next);
     if (next) this.selectBlocks([next.dataset.id]);
   };
 
@@ -884,13 +895,18 @@
 
   // The innermost block whose own row is at this height. Probing at the
   // right edge of the column finds it at any nesting depth, because every
-  // level's row reaches that edge.
+  // level's row reaches that edge. Over a grid the column is the cell under
+  // the pointer, and a cell's empty space belongs to its grid.
   P.hoverAt = function (x, y) {
     if (!this.gutter || this.destroyed) return;
     const box = this.blocksEl.getBoundingClientRect();
     if (y < box.top || y > box.bottom || x > box.right + 40) { this.hideGutterSoon(); return; }
-    const hit = document.elementFromPoint(Math.max(box.left + 2, box.right - 3), y);
-    const el = hit && !hit.closest(".editor-gutter") ? this.blockOf(hit) : null;
+    const cell = this.cellAt(x, y);
+    const col = cell ? cell._kids.getBoundingClientRect() : box;
+    // Through a cell's menu button, which sits on its corner.
+    const hit = document.elementsFromPoint(Math.max(col.left + 2, col.right - 3), y).find((n) => !n.closest(".cell-menu-btn"));
+    let el = hit && !hit.closest(".editor-gutter") ? this.blockOf(hit) : null;
+    if (el && el._b.type === "grid_cell") el = this.parentEl(el);
     if (!el) { if (!(hit && hit.closest(".editor-gutter"))) this.hideGutterSoon(); return; }
     this.showGutter(el);
   };
@@ -1018,12 +1034,15 @@
     this.hideDrop();
     const t = drag.target;
     if (!t) return;
+    // Into a new cell: the blocks take the place of its empty first line.
+    const spare = this.placeholderLine(t.parentId, drag.ids);
     this.op("Move", () => {
       let after = t.after;
       for (const id of drag.ids) {
         this.move(id, { parentId: t.parentId, after });
         after = id;
       }
+      if (spare && !drag.ids.includes(spare)) this.remove(spare);
     });
     if (t.parentId) { const p = this.els.get(t.parentId); if (p && p._b.type === "toggle" && this.collapsed(p)) this.setOpen(p, true); }
     this.selectBlocks(drag.ids);
@@ -1036,9 +1055,15 @@
      at the end of a nested list moving left climbs out level by level. */
   P.dropTarget = function (x, y, { nest = false, exclude = null } = {}) {
     const excluded = (el) => Boolean(exclude && exclude.some((d) => d === el || d.contains(el)));
-    const list = this.visibleBlocks().filter((el) => !excluded(el));
-    const box = this.blocksEl.getBoundingClientRect();
-    if (!list.length) return { parentId: null, after: null, y: box.top, left: box.left };
+    // Over a grid, the list dropped into is the cell under the pointer, and
+    // it is a page of its own: the same rules, inside its edges. A grid in a
+    // list is one block there, never a place to nest into.
+    const cell = this.cellAt(x, y, exclude);
+    const container = cell ? cell._kids : this.blocksEl;
+    const list = this.visibleIn(container).filter((el) => !excluded(el));
+    const box = container.getBoundingClientRect();
+    const right = box.right;
+    if (!list.length) return { parentId: cell ? cell.dataset.id : null, after: null, y: box.top, left: box.left, right };
     let k = list.length;
     for (let i = 0; i < list.length; i++) {
       const r = list[i]._row.getBoundingClientRect();
@@ -1049,32 +1074,34 @@
     const rowBox = (el) => el._row.getBoundingClientRect();
     const textLeft = (el) => ((el._text && E.TEXT.has(el._b.type) && el._text.getClientRects().length) ? el._text : el._row).getBoundingClientRect().left;
     const lineY = below ? rowBox(below).top - 1 : rowBox(above).bottom + 1;
-    if (!above) return { parentId: below._b.parent || null, after: null, y: lineY, left: rowBox(below).left };
-    // Below the last block by a margin: the end of the page.
+    if (!above) return { parentId: below._b.parent || null, after: null, y: lineY, left: rowBox(below).left, right };
+    // Below the last block by a margin: the end of the page (or the cell).
     if (!below && y > rowBox(above).bottom + 12) {
-      const tops = App.store.blocks(this.pageId).filter((b) => !exclude || !exclude.some((d) => d.dataset.id === b.id));
+      const tops = (cell ? App.store.childBlocks(cell.dataset.id) : App.store.blocks(this.pageId))
+        .filter((b) => !exclude || !exclude.some((d) => d.dataset.id === b.id));
       const last = tops[tops.length - 1];
-      return { parentId: null, after: last ? last.id : null, y: lineY, left: box.left };
+      return { parentId: cell ? cell.dataset.id : null, after: last ? last.id : null, y: lineY, left: box.left, right };
     }
-    const firstKid = this.firstChildEl(above);
+    const grid = above._b.type === "grid";
+    const firstKid = grid ? null : this.firstChildEl(above);
     if (firstKid && !excluded(firstKid)) {
-      return { parentId: above.dataset.id, after: null, y: lineY, left: textLeft(above) };
+      return { parentId: above.dataset.id, after: null, y: lineY, left: textLeft(above), right };
     }
-    if (nest && x > textLeft(above) + 48 && !["divider"].includes(above._b.type)) {
-      return { parentId: above.dataset.id, after: null, y: lineY, left: textLeft(above) + 20, nested: true };
+    if (nest && x > textLeft(above) + 48 && !grid && above._b.type !== "divider") {
+      return { parentId: above.dataset.id, after: null, y: lineY, left: textLeft(above) + 20, right, nested: true };
     }
     // Climb out while the block is the last in its list and the pointer is
-    // left of where that list starts.
+    // left of where that list starts, but not out of the cell.
     let cur = above;
     for (;;) {
       if (x >= rowBox(cur).left - 6) break;
       let n = cur.nextElementSibling;
       while (n && (!n.dataset.id || excluded(n))) n = n.nextElementSibling;
       const parent = this.parentEl(cur);
-      if (n || !parent) break;
+      if (n || !parent || parent === cell) break;
       cur = parent;
     }
-    return { parentId: cur._b.parent || null, after: cur.dataset.id, y: lineY, left: rowBox(cur).left };
+    return { parentId: cur._b.parent || null, after: cur.dataset.id, y: lineY, left: rowBox(cur).left, right };
   };
 
   P.showDropLine = function (t) {
@@ -1083,7 +1110,7 @@
     const box = this.blocksEl.getBoundingClientRect();
     this.dropLine.style.top = `${Math.round(t.y - inner.top - 2)}px`;
     this.dropLine.style.left = `${Math.round(t.left - inner.left)}px`;
-    this.dropLine.style.width = `${Math.max(40, Math.round(box.right - t.left))}px`;
+    this.dropLine.style.width = `${Math.max(40, Math.round((t.right || box.right) - t.left))}px`;
     this.dropLine.hidden = false;
   };
 
@@ -1198,7 +1225,13 @@
     const files = [...(e.dataTransfer.files || [])];
     if (!files.length) return;
     if (!navigator.onLine) { App.toast("Files need a connection"); return; }
-    if (target.fill) this.uploadFiles(files, { replaceId: target.fill.dataset.id, parentId: target.fill._b.parent || null, after: target.fill.dataset.id });
-    else this.uploadFiles(files, { parentId: target.parentId, after: target.after });
+    if (target.fill) { this.uploadFiles(files, { replaceId: target.fill.dataset.id, parentId: target.fill._b.parent || null, after: target.fill.dataset.id }); return; }
+    // Into a new cell: the files take the place of its empty first line.
+    const spare = this.placeholderLine(target.parentId);
+    this.uploadFiles(files, { parentId: target.parentId, after: target.after }).then((made) => {
+      if (made && made.length && spare && spare === this.placeholderLine(target.parentId, made.map((b) => b.id))) {
+        this.op("Upload", () => this.remove(spare));
+      }
+    });
   };
 })();

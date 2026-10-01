@@ -186,9 +186,9 @@ App.markdown = (function () {
     ordered: /^(\s*)(\d{1,9}[.)])(\s+)(.*)$/,
     hr:      /^\s*([-*_])(?:\s*\1){2,}\s*$/,
     // meerpad: a task item's box, the container tags app.mdblocks.js writes
-    // for toggles and callouts, and a display equation's $$ fence.
+    // for toggles, callouts and grids, and a display equation's $$ fence.
     task:    /^(\[[ xX]\])(\s+|$)(.*)$/,
-    html:    /^\s*<\/?(details|summary|aside)\b[^>]*>.*$/i,
+    html:    /^\s*<\/?(details|summary|aside|grid|cell)\b[^>]*>.*$/i,
     math:    /^\s*\$\$\s*$/,
     image:   /^\s*!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)\s*$/,
     table:   /^\s*\|.*\|\s*$/,

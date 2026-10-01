@@ -316,6 +316,27 @@ def _is_blank(n: BlockNode) -> bool:
     return n.type == "paragraph" and not n.text.strip() and not n.children
 
 
+def _trim_blank(nodes: list[BlockNode]) -> list[BlockNode]:
+    """``nodes`` without leading and trailing empty paragraphs: they are
+    spacing in the editor (a fresh grid cell holds one), not content."""
+    nodes = list(nodes)
+    while nodes and _is_blank(nodes[0]):
+        nodes.pop(0)
+    while nodes and _is_blank(nodes[-1]):
+        nodes.pop()
+    return nodes
+
+
+def grid_columns(props: dict) -> int:
+    """A grid's column count (DESIGN §2): ``columns`` clamped to 1 to 6, and 2
+    when it is not a whole number (a bool is not one, 3.0 is). app/mdblocks.py
+    and app.mdblocks.js ``gridColumns`` read it the same way."""
+    v = props.get("columns") if isinstance(props, dict) else None
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return min(max(v, 1), 6) if isinstance(v, int) and not isinstance(v, bool) else 2
+
+
 def first_paragraph(nodes: list[BlockNode]) -> BlockNode | None:
     """The page's opening paragraph: the first block that is not an empty
     line, if that block is a paragraph. Used as a landing page's lead."""
@@ -340,12 +361,7 @@ def excerpt(nodes: list[BlockNode], limit: int = 200) -> str:
 def render_blocks(nodes: list[BlockNode], ctx: RenderContext) -> Markup:
     """A block tree (``build_tree``) as HTML. Leading and trailing empty
     paragraphs are dropped: they are spacing in the editor, not content."""
-    nodes = list(nodes)
-    while nodes and _is_blank(nodes[0]):
-        nodes.pop(0)
-    while nodes and _is_blank(nodes[-1]):
-        nodes.pop()
-    return Markup(_render_nodes(nodes, ctx, 0, 0))
+    return Markup(_render_nodes(_trim_blank(nodes), ctx, 0, 0))
 
 
 _LIST_TYPES = ("bulleted_list", "numbered_list", "to_do")
@@ -450,6 +466,29 @@ def _render_callout(n: BlockNode, ctx: RenderContext, depth: int) -> str:
     kids = _render_nodes(n.children, ctx, depth + 1, 0) if n.children else ""
     text = f"<p>{ctx.inline(n.text)}</p>" if n.text.strip() else ""
     return f'<aside class="callout {color}">{icon}<div class="callout-body">{text}{kids}</div></aside>'
+
+
+def _render_grid(n: BlockNode, ctx: RenderContext, depth: int) -> str:
+    """Cells side by side (DESIGN §2, Grids). The cells are written in order
+    and the CSS grid fills its columns row by row, which is also the order a
+    narrow screen stacks them in. An empty cell keeps its slot; a child that
+    is not a cell takes one as if it were a cell holding it."""
+    if not n.children:
+        return ""
+    cells = []
+    for c in n.children:
+        if c.type == "grid_cell":
+            body = _render_nodes(_trim_blank(c.children), ctx, depth + 2, 0)
+        else:
+            body = _render_nodes(_trim_blank([c]), ctx, depth + 1, 0)
+        cells.append(f'<div class="grid-cell">{body}</div>')
+    cls = _cls("grid", f"grid-cols-{grid_columns(n.props)}", color_class(n.props))
+    return f"<div{cls}>{''.join(cells)}</div>"
+
+
+def _render_grid_cell(n: BlockNode, ctx: RenderContext, depth: int) -> str:
+    """A cell outside a grid (editors never leave one): just its content."""
+    return _render_nodes(_trim_blank(n.children), ctx, depth + 1, 0)
 
 
 _LANG_LABELS = {
@@ -797,6 +836,8 @@ _RENDERERS = {
     "page": _render_page_link,
     "database": _render_database,
     "equation": _render_equation,
+    "grid": _render_grid,
+    "grid_cell": _render_grid_cell,
 }
 
 

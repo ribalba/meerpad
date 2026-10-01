@@ -74,9 +74,51 @@ edits a block.
 | `page` | "" | `page_id`: a link card to a page (a child page, or any page) |
 | `database` | "" | `page_id`: an inline database view of that database page; `view_id?` |
 | `equation` | TeX source | |
+| `grid` | "" | `columns: int` (1 to 6, default 2), `color?`; its children are `grid_cell` blocks |
+| `grid_cell` | "" | content is child blocks; only ever a child of a `grid` |
 
 `color` is one of `gray brown orange yellow green blue purple pink red`, or
 the same name with `_bg` for a background (`yellow_bg`).
+
+### Grids
+
+A grid places blocks next to each other: a picture beside its text, three
+columns of notes.
+
+- Its cells fill `columns` columns row by row, in `position` order, so a grid
+  of `n` cells has `ceil(n / columns)` rows and its last row may be short.
+  `columns` outside 1 to 6 is clamped; missing or not a number reads as 2.
+- A wider grid inserts a cell at the same place in every row. A taller one
+  appends a row of `columns` cells. Taking a column or a row away deletes its
+  cells with their content.
+- Editors keep two rules: a grid's children are cells, and a cell sits in a
+  grid. Blocks are moved into and out of cells, never between a grid's cells
+  as siblings of them. Readers stay lenient: a grid child that is not a cell
+  takes a slot as if it were one, and a cell outside a grid shows its content.
+- Narrow screens show the cells one below the other, in order.
+- In a page's Markdown (`app/static/js/app.mdblocks.js` and
+  `app/mdblocks.py`: Markdown mode, copying blocks, the export) a grid is a
+  container like a toggle, each tag on a line of its own and the content not
+  indented:
+
+  ```
+  <grid columns="2">
+  <cell>
+
+  ![](/api/files/<file_id>)
+
+  </cell>
+  <cell>
+
+  The text beside the picture.
+
+  </cell>
+  </grid>
+  ```
+
+  An empty cell is `<cell>` and `</cell>` on consecutive lines. When reading,
+  a `<grid>` without `columns` has as many columns as cells (at most 6), and
+  blocks inside a grid but outside every `<cell>` form a cell of their own.
 
 A file reference `file_id` resolves to `/api/files/<file_id>`. A share-link
 visitor appends `?share=<token>`, and a published site serves files as
@@ -352,6 +394,14 @@ reports `inherited_from`.
 - **Templates** (`app/templates/sites/<id>/`): `minimal`, `docs` (sidebar
   navigation), `blog` (the root lists its subpages as posts), and `landing`
   (hero from cover and title).
+- **Options** (`site.options`): `title`, `description` and `footer` (blank
+  means the page's own), `accent` (`#rrggbb`), and two switches that default
+  to on:
+  - `show_header`: the bar along the top with the site title. Without it,
+    `minimal` and `landing` also lose the links that bar holds, `blog` puts an
+    "All posts" link above each post, and `docs` keeps a bar with only the
+    menu button on phones.
+  - `show_nav`: links to the subpages, in the header or the sidebar.
 
 ## 10. Notion import
 

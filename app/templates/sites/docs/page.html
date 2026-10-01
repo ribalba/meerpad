@@ -34,6 +34,10 @@
 .menu-btn:hover { background: var(--bg-hover); color: var(--text); }
 .menu-btn svg { width: 20px; height: 20px; }
 .nav-toggle:focus-visible + .docs-top .menu-btn { outline: 2px solid var(--accent); }
+/* Without the header the sidebar starts at the top. On phones a bar with just
+   the menu button stays, since that is the only way to the sidebar. */
+.no-header { --top: 0px; }
+.no-header .docs-top { display: none; }
 
 .shell { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); max-width: 1480px; margin: 0 auto; }
 .shell.has-toc { grid-template-columns: var(--side) minmax(0, 1fr) 232px; }
@@ -111,6 +115,8 @@
   .toc { display: none; }
 }
 @media (max-width: 900px) {
+  .no-header { --top: 56px; }
+  .no-header .docs-top { display: flex; }
   .menu-btn { display: grid; }
   .shell, .shell.has-toc { grid-template-columns: minmax(0, 1fr); }
   .sidebar {
@@ -134,12 +140,16 @@
 {% if site.show_nav %}
 <input type="checkbox" id="nav-toggle" class="nav-toggle visually-hidden" aria-label="Show navigation">
 {% endif %}
+{% if site.show_header or site.show_nav %}
 <header class="docs-top">
 {% if site.show_nav %}
 <label for="nav-toggle" class="menu-btn" title="Menu"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 6h13M3.5 10h13M3.5 14h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></label>
 {% endif %}
+{% if site.show_header %}
 <a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
+{% endif %}
 </header>
+{% endif %}
 <div class="shell{% if not site.show_nav %} no-nav{% elif toc|length > 1 %} has-toc{% endif %}">
 {% if site.show_nav %}
 <aside class="sidebar" aria-label="Pages">

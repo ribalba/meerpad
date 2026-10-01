@@ -433,6 +433,9 @@ def _site_options(site: Site) -> dict:
         "title": (o.get("title") or "").strip() if isinstance(o.get("title"), str) else "",
         "description": (o.get("description") or "").strip() if isinstance(o.get("description"), str) else "",
         "footer": (o.get("footer") or "").strip() if isinstance(o.get("footer"), str) else "",
+        # The bar along the top with the site's title (and, in most templates,
+        # the navigation links). Sites published before the option keep it.
+        "show_header": o.get("show_header") is not False,
         "show_nav": o.get("show_nav") is not False,
         "accent": (accent or DEFAULT_ACCENT).lower(),
     }
@@ -620,6 +623,7 @@ def _base_context(request: Request, smap: SiteMap, ctx: SiteContext, prefix: str
             "description": opts["description"],
             # Inline Markdown, so a footer can carry links ("[Imprint](https://...)").
             "footer": Markup(ctx.inline(opts["footer"])) if opts["footer"] else "",
+            "show_header": opts["show_header"],
             "show_nav": opts["show_nav"],
             "template": site.template if site.template in TEMPLATE_IDS else "minimal",
             "home": prefix + "/",

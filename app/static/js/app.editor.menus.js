@@ -51,6 +51,12 @@
       kind("quote"), kind("callout"), kind("divider"),
       { heading: "Media" },
       kind("image"), kind("file"), kind("bookmark"), kind("embed"),
+      { heading: "Layout" },
+      { label: "2 columns", icon: "columns", description: "Two blocks side by side, like a picture and its text",
+        keywords: "columns two 2 side by side next to layout grid", run: { type: "grid", props: { columns: 2 } } },
+      { label: "3 columns", icon: "columns-3", description: "Three blocks side by side",
+        keywords: "columns three 3 side by side next to layout grid", run: { type: "grid", props: { columns: 3 } } },
+      kind("grid", { props: { columns: 2, rows: 2 } }),
       { heading: "Advanced" },
       kind("code"),
       { label: "Mermaid diagram", icon: "share", description: "Flowcharts and diagrams from text",
@@ -177,6 +183,18 @@
       } else if (type === "divider") {
         make("divider", {});
         follow = this.create({ parentId: b.parent_id, after: targetId, type: "paragraph" });
+      } else if (type === "grid") {
+        // Cells with a line each to type in; `rows` is only how many to start
+        // with. A line with blocks nested under it keeps them and gets the
+        // grid after it, since a grid holds nothing but cells.
+        const columns = App.mdblocks.gridColumns(props);
+        if (empty && !App.store.childBlocks(id).length) make("grid", { columns });
+        else targetId = this.create({ parentId: b.parent_id, after: id, type: "grid", props: { columns } }).id;
+        const n = columns * Math.max(1, Math.min(6, Number(props.rows) || 1));
+        for (let k = 0; k < n; k++) {
+          const cell = this.newCell(targetId);
+          if (!follow) follow = App.store.childBlocks(cell.id)[0];
+        }
       } else {
         make(type, props);
       }
@@ -228,6 +246,7 @@
     const types = ids.map((id) => (App.store.block(id) || {}).type);
     const items = [];
     if (types.every((t) => E.TEXT.has(t))) items.push({ label: "Turn into", icon: "wand", submenu: this.turnIntoItems(ids) });
+    if (ids.length === 1 && types[0] === "grid") items.push(...this.gridMenuItems(ids[0]), { divider: true });
     items.push({ label: "Color", icon: "palette", submenu: this.colorItems(ids) });
     items.push({ divider: true });
     items.push({ label: "Duplicate", icon: "copy", hint: mod("D"), onSelect: () => { const c = this.duplicate(ids); if (c.length) this.selectBlocks(c.map((b) => b.id)); } });

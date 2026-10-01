@@ -10,7 +10,7 @@
 
 ## Features
 
-- **Blocks, like Notion:** paragraphs, three heading levels, bulleted and numbered lists, to-dos, toggles, quotes, callouts, code (with a language), dividers, images, files (PDFs preview inline), bookmarks, embeds (YouTube, Vimeo and similar), tables, equations, links to pages and inline databases. `/` opens the list of blocks; a block is moved by dragging its handle.
+- **Blocks, like Notion:** paragraphs, three heading levels, bulleted and numbered lists, to-dos, toggles, quotes, callouts, code (with a language), dividers, images, files (PDFs preview inline), bookmarks, embeds (YouTube, Vimeo and similar), tables, equations, links to pages and inline databases. Grids put blocks side by side, in rows and columns that can be added or removed. `/` opens the list of blocks; a block is moved by dragging its handle.
 - **Markdown as you type:** `# `, `## `, `### ` for headings, `- ` for a bullet, `1. ` for a numbered list, `[] ` for a to-do, `> ` for a quote, three backticks for code and `---` for a divider. Inline text is meerail's Markdown dialect: `**bold**`, `*italic*` or `_italic_`, `~~strike~~`, `` `code` ``, `==highlight==` and `[text](url)` links. `[[` links to another page by name.
 - **Keyboard:** Ctrl+B, Ctrl+I, Ctrl+E (inline code) and Ctrl+K (link); Tab and Shift+Tab nest and un-nest a block.
 - **Workspaces:** for example Work, House and Farm. Each has its own page tree; moving a page to another workspace moves its whole subtree.

@@ -31,6 +31,10 @@
 .all-posts { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); text-decoration: none; font-size: .9rem; padding: 6px 10px; border-radius: 7px; white-space: nowrap; }
 .all-posts:hover { background: var(--bg-hover); color: var(--text); }
 .arrow { width: 14px; height: 14px; flex: none; }
+/* Without the header, a post's way back sits above it. */
+.back-row { max-width: 1120px; margin: 0 auto; padding: 20px 28px 0; }
+.back-row .all-posts { margin-left: -10px; }
+.back-row + main .post { padding-top: 40px; }
 
 .blog-hero { max-width: 1120px; margin: 0 auto; padding: 72px 28px 28px; }
 .blog-hero h1 { font-family: var(--font-serif); font-size: clamp(2.5rem, 1.8rem + 3vw, 4rem); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; max-width: 16ch; }
@@ -98,6 +102,8 @@
   .more { width: calc(100% - 36px); }
   .post-grid { grid-template-columns: 1fr; gap: 36px; }
   .post { padding: 40px 18px 0; }
+  .back-row { padding: 14px 18px 0; }
+  .back-row + main .post { padding-top: 28px; }
   .post-cover { margin-top: 30px; border-radius: 12px; }
   .post-body { margin-top: 32px; }
   .post-body .page-body { font-size: 18px; }
@@ -105,6 +111,7 @@
 }
 {% endblock %}
 {% block body %}
+{% if site.show_header %}
 <header class="blog-top">
 <div class="blog-top-inner">
 <a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
@@ -113,6 +120,9 @@
 {% endif %}
 </div>
 </header>
+{% elif not page.is_root %}
+<nav class="back-row" aria-label="Back"><a class="all-posts" href="{{ site.home }}">{{ m.arrow("left") }}All posts</a></nav>
+{% endif %}
 {% if page.is_root %}
 <main>
 <section class="blog-hero">

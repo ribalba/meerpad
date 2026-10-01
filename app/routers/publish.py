@@ -107,8 +107,9 @@ def domain_problem(db: DBSession, domain: str, page_id: str | None = None) -> tu
 
 
 def clean_options(raw: dict) -> dict:
-    """``{title?, description?, footer?, show_nav, accent?}``. Blank texts are
-    dropped, unknown keys ignored (forward compatibility), wrong types refused."""
+    """``{title?, description?, footer?, show_header, show_nav, accent?}``. Blank
+    texts are dropped, unknown keys ignored (forward compatibility), wrong types
+    refused."""
     if not isinstance(raw, dict):
         raise HTTPException(status_code=422, detail="options must be an object")
     out: dict = {}
@@ -123,10 +124,11 @@ def clean_options(raw: dict) -> dict:
             raise HTTPException(status_code=422, detail=f"options.{key} is too long (at most {limit} characters)")
         if v:
             out[key] = v
-    show_nav = raw.get("show_nav", True)
-    if not isinstance(show_nav, bool):
-        raise HTTPException(status_code=422, detail="options.show_nav must be true or false")
-    out["show_nav"] = show_nav
+    for key in ("show_header", "show_nav"):
+        v = raw.get(key, True)
+        if not isinstance(v, bool):
+            raise HTTPException(status_code=422, detail=f"options.{key} must be true or false")
+        out[key] = v
     accent = raw.get("accent")
     if accent not in (None, ""):
         if not isinstance(accent, str) or not _ACCENT.match(accent):

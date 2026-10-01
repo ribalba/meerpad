@@ -1,6 +1,6 @@
 /* The block editor: the page title, then the page's blocks, Notion-style.
 
-   Four files make it up, loaded in this order, all extending one Editor class:
+   Five files make it up, loaded in this order, all extending one Editor class:
 
      app.editor.js         this file: the DOM model, rendering, keeping the DOM
                            in step with App.store, the caret helpers, the
@@ -9,6 +9,7 @@
      app.editor.menus.js   the slash menu, the block menu, links and pickers;
      app.editor.media.js   images, files, bookmarks, embeds, tables, code,
                            equations, page links and inline databases;
+     app.editor.grid.js    grids: blocks side by side, in rows and columns;
      app.editor.input.js   keyboard, typing, paste, drag and drop, selection.
 
    How it holds together:
@@ -69,12 +70,15 @@ App.editor = (() => {
     bookmark: { label: "Bookmark", icon: "bookmark", desc: "Save a link as a visual card", keywords: "bookmark link url card" },
     embed: { label: "Embed", icon: "embed", desc: "YouTube, Vimeo, Maps, Figma…", keywords: "embed video youtube vimeo loom maps codepen figma iframe" },
     table: { label: "Table", icon: "table", desc: "A simple table", keywords: "table grid rows columns" },
+    grid: { label: "Grid", icon: "grid", desc: "Blocks in rows and columns", keywords: "grid columns rows layout side by side next to" },
     page: { label: "Page", icon: "page", desc: "Embed a sub-page inside this page", keywords: "page subpage new" },
     database: { label: "Database", icon: "database", desc: "An inline database of pages", keywords: "database table board list gallery" },
   };
 
-  // Blocks' renderers: { render(ed, el, block) -> { row, kidsHost?, after? } }.
-  // The text kinds are here; app.editor.media.js registers the rest.
+  // Blocks' renderers: { render(ed, el, block) -> { row, kidsHost?, after? } },
+  // and optionally update(ed, el, block) -> true when a change of props was
+  // applied to the element in place. The text kinds are here;
+  // app.editor.media.js and app.editor.grid.js register the rest.
   const types = {};
 
   // --- small helpers --------------------------------------------------------------
@@ -450,6 +454,10 @@ App.editor = (() => {
         if (s.parent !== parent || s.position !== b.position) { lists.add(s.parent); lists.add(parent); }
         const editing = this.isEditing(el, active);
         if (s.type !== b.type || s.props !== propsKey(b.props)) {
+          // A grid takes a new column count in place: rebuilding it would
+          // take its cells, and a caret in one of them, out of the page.
+          const def = types[b.type];
+          if (s.type === b.type && def && def.update && def.update(this, el, b)) { s.props = propsKey(b.props); continue; }
           if (editing && !force) { el._stale = true; continue; }
           this.refill(el, b);
         } else if (s.text !== (b.text || "")) {
@@ -810,6 +818,46 @@ App.editor = (() => {
       return b.parent_id ? App.store.childBlocks(b.parent_id) : App.store.blocks(this.pageId);
     }
 
+    // --- grids ------------------------------------------------------------------------
+    /* A grid's children are cells, and a cell sits in a grid (DESIGN §2). The
+       structural edits keep it so: nothing is indented into a grid or out of
+       a cell, merges stop at a cell's edge, and a cell is never selected on
+       its own (deleting or moving one would shift every cell after it), its
+       grid is. Inside a cell, a block behaves as at the top of the page. */
+
+    // The innermost cell element an element sits in, or null.
+    enclosingCell(el) {
+      const c = el && el.parentElement && el.parentElement.closest(".blk-grid_cell");
+      return c && this.blocksEl.contains(c) ? c : null;
+    }
+
+    // In a list nothing can be outdented from: the page's own, or a cell's.
+    atTop(b) {
+      if (!b.parent_id) return true;
+      const p = App.store.block(b.parent_id);
+      return Boolean(p && p.type === "grid_cell");
+    }
+
+    // A child of a grid: a cell (or a block another client left there). Its
+    // place is its grid's layout, so it is not moved by itself.
+    inGrid(b) {
+      const p = b && b.parent_id ? App.store.block(b.parent_id) : null;
+      return Boolean(p && p.type === "grid");
+    }
+
+    // Whether Shift+Tab (or moving past the edge) may take a block out of its
+    // parent: not out of a cell, and not out of a grid's slots.
+    canLeaveParent(b) {
+      return Boolean(b && b.parent_id && !this.atTop(b) && !this.inGrid(b));
+    }
+
+    // What selecting a block selects: a cell's grid for the cell.
+    selectable(id) {
+      const b = App.store.block(id);
+      const p = b && b.type === "grid_cell" && b.parent_id ? App.store.block(b.parent_id) : null;
+      return p && p.type === "grid" ? p.id : id;
+    }
+
     // --- focus and selection ------------------------------------------------------
     openAncestors(el) {
       let p = this.parentEl(el);
@@ -885,6 +933,7 @@ App.editor = (() => {
 
     selectBlocks(ids, opts = {}) {
       this.clearSelection();
+      ids = [...new Set(ids.map((id) => this.selectable(id)))];
       for (const id of ids) {
         const el = this.els.get(id);
         if (!el) continue;
@@ -1023,7 +1072,7 @@ App.editor = (() => {
       // An empty list item (or quote, toggle, callout) ends the list: out one
       // level first when nested, then into a plain paragraph.
       if (!text && EXITS.has(type)) {
-        if (b.parent_id) this.outdent([id]);
+        if (!this.atTop(b)) this.outdent([id]);
         else this.op("Turn into text", () => this.update(id, { type: "paragraph", props: this.propsFor(b.props, "paragraph") }));
         this.focusBlock(id, 0);
         return;
@@ -1093,13 +1142,31 @@ App.editor = (() => {
         this.focusBlock(id, 0);
         return;
       }
-      if (b.parent_id) {
+      if (!this.atTop(b)) {
         this.outdent([id]);
         this.focusBlock(id, 0);
         return;
       }
       const prev = this.prevVisible(el);
       if (!prev) return;
+      if (this.enclosingCell(prev) !== this.enclosingCell(el)) {
+        // The block above is across a cell's edge, and merges stop there.
+        let sib = el.previousElementSibling;
+        while (sib && !sib.dataset.id) sib = sib.previousElementSibling;
+        const kids = App.store.childBlocks(id).length;
+        if (sib) {
+          // A grid right above: selected, as an image would be.
+          if (!text && !kids) this.op("Delete", () => this.remove(id));
+          this.selectBlocks([sib.dataset.id]);
+        } else if (!text && !kids && this.nextVisible(el) && this.enclosingCell(this.nextVisible(el)) === this.enclosingCell(el)) {
+          // The first line of a cell, empty, with more below it: it goes.
+          const next = this.nextVisible(el);
+          this.op("Delete", () => this.remove(id));
+          if (this.isTextTarget(next)) this.focusBlock(next.dataset.id, "start");
+          else this.selectBlocks([next.dataset.id]);
+        }
+        return;
+      }
       const pb = App.store.block(prev.dataset.id);
       if (this.isTextTarget(prev)) {
         const ptext = readText(prev._text);
@@ -1120,7 +1187,7 @@ App.editor = (() => {
     /* Delete with the caret at the end: the next block's text joins this one. */
     deleteAtEnd(el) {
       const next = this.nextVisible(el);
-      if (!next || !this.isTextTarget(next)) return;
+      if (!next || !this.isTextTarget(next) || this.enclosingCell(next) !== this.enclosingCell(el)) return;
       const id = el.dataset.id;
       const nb = App.store.block(next.dataset.id);
       const text = readText(el._text);
@@ -1143,6 +1210,8 @@ App.editor = (() => {
           const i = sibs.findIndex((x) => x.id === id);
           if (i <= 0) continue;
           const prev = sibs[i - 1];
+          // Nothing goes into a grid but its cells, which stay where they are.
+          if (this.inGrid(b) || prev.type === "grid") continue;
           this.move(id, { parentId: prev.id });
           const pel = this.els.get(prev.id);
           if (pel && prev.type === "toggle" && this.collapsed(pel)) this.setOpen(pel, true);
@@ -1154,7 +1223,7 @@ App.editor = (() => {
        come along as children, so the reading order never changes. Done from
        the last block up, so a run of selected siblings keeps its order. */
     outdent(ids) {
-      ids = this.topLevel(ids).filter((id) => App.store.block(id) && App.store.block(id).parent_id);
+      ids = this.topLevel(ids).filter((id) => this.canLeaveParent(App.store.block(id)));
       if (!ids.length) return;
       this.op("Outdent", () => {
         for (const id of [...ids].reverse()) {
@@ -1172,14 +1241,15 @@ App.editor = (() => {
     /* Ctrl/Cmd+Shift+Up/Down: past the neighbouring sibling, or out of the
        parent at the edge of its children. */
     moveBy(ids, dir) {
-      ids = this.topLevel(ids);
+      ids = this.topLevel(ids).filter((id) => !this.inGrid(App.store.block(id)));
       if (!ids.length) return;
       const first = App.store.block(ids[0]);
       ids = ids.filter((id) => (App.store.block(id).parent_id || null) === (first.parent_id || null));
       const sibs = this.siblingsOf(first);
       const lo = sibs.findIndex((x) => x.id === ids[0]);
       const hi = sibs.findIndex((x) => x.id === ids[ids.length - 1]);
-      const parent = first.parent_id ? App.store.block(first.parent_id) : null;
+      // At the edge of a cell the blocks stay in it.
+      const parent = this.canLeaveParent(first) ? App.store.block(first.parent_id) : null;
       this.op("Move", () => {
         if (dir < 0) {
           if (lo > 0) ids.forEach((id) => this.move(id, { parentId: first.parent_id, before: sibs[lo - 1].id }));

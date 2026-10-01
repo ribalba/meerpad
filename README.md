@@ -16,7 +16,8 @@ can become a **website** at `meerpad.com/v/name` or on your own domain. It is ho
 [meerpad.com](https://meerpad.com), and it is one `make up` away on your own machine.
 
 **Features:** blocks like Notion (text, headings, lists, to-dos, toggles, quotes, callouts,
-code, tables, images, files, bookmarks, embeds, equations) · Markdown shortcuts as you type,
+code, tables, images, files, bookmarks, embeds, equations) · grids, to put blocks side by
+side in rows and columns · Markdown shortcuts as you type,
 and inline Markdown in meerail's dialect · `/` for every block, `[[` to link a page · drag
 handles · workspaces, each a page tree of its own · databases with table, board, list,
 gallery and Gantt views · offline first, synced across devices, merged field by field · share links to
@@ -97,7 +98,7 @@ At the start of a block, Markdown turns into the block as you type:
 | `!> ` | Callout |
 | ```` ``` ```` then `Enter` | Code block (```` ```py ```` sets the language) |
 | `---` | Divider |
-| `/` | The block menu: callouts, toggles, tables, images, files, embeds, equations, databases, and all of the above |
+| `/` | The block menu: callouts, toggles, tables, images, files, embeds, equations, grids, databases, and all of the above |
 | `[[` | Link to a page, by its title |
 
 Inside a block, text is Markdown in **meerail's dialect**: `**bold**`, `*italic*` or
@@ -129,6 +130,12 @@ A whole page can also be edited as one Markdown document, meerail's editor with 
 markers in view: **Edit as Markdown** in the page's `...` menu. Leaving it turns the text
 back into blocks and keeps the ones you did not change exactly as they were, so links to
 them keep working.
+
+A **grid** puts blocks next to each other: a picture beside its text, three columns of
+notes. `/2 columns`, `/3 columns` or `/grid` make one. Each cell holds any blocks, typed
+into or dragged in by their handle. Hovering a grid shows a `+` along its right edge for
+another column and along its bottom for another row, and a cell's `...` inserts or deletes
+a column or a row where it is (up to 6 columns). On a phone the cells stack.
 
 ### Files
 

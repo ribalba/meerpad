@@ -11,9 +11,9 @@ exists, nothing about it is special.
 Each page shows a part of meerpad (docs/DESIGN.md is the contract it follows):
 
 * Farm, the root page: the tour, as a table, to-dos and an inline database;
-* Chickens: the everyday blocks, an image, an equation, colours and links to
-  pages; below it Breeds (a gallery, a picture on every card), the Egg log,
-  and one page in the trash;
+* Chickens: the everyday blocks, a picture beside its text in a grid, an
+  equation, colours and links to pages; below it Breeds (a gallery, a picture
+  on every card), the Egg log, and one page in the trash;
 * Farm tasks and Season plan: board, table, list and Gantt views, filters;
 * Farm shop: a PDF preview, a bookmark, a map, and the cover and subpages that
   make it a landing page once it is published;
@@ -53,7 +53,7 @@ ICON = "🚜"
 # The root page's table of contents: which page shows what. A table in the
 # editor is as wide as its longest cell, so these stay short enough to fit.
 TOUR = (
-    ("chickens", "🐔 Chickens", "Headings, lists, to-dos, toggles, callouts, an image, an equation"),
+    ("chickens", "🐔 Chickens", "Headings, lists, to-dos, toggles, callouts, a grid, an equation"),
     ("tasks", "✅ Farm tasks", "A board, a table and a filtered list. Drag the cards around"),
     ("season", "📅 Season plan", "A Gantt chart: drag a bar to move it, or its end to stretch it"),
     ("breeds", "🐓 Breeds", "A gallery, with a picture on every card"),
@@ -357,8 +357,19 @@ class _Farm:
                 `code`, ==highlighted== or [a link](https://en.wikipedia.org/wiki/Chicken), and it can link
                 to other pages, like the {link(i["eggs"], "Egg log")}.
                 """),
-            self.image(i["chickens"], "farm-map.svg",
-                       "The farm from above. Drop a picture onto a page and it shows up like this."),
+            node("grid", "",
+                 node("grid_cell", "", self.image(i["chickens"], "farm-map.svg",
+                                                  "The farm from above. Drop a picture onto a page and it "
+                                                  "shows up like this.")),
+                 node("grid_cell", "", *md("""
+                     The hen house and its run sit in the middle of the farm, with the kitchen garden on one
+                     side and the barn on the other. On most afternoons the hens wander up to the orchard to
+                     look for windfalls.
+
+                     The picture and this text are a grid: blocks next to each other. Hover over it and a +
+                     shows up at its right edge for another column, and at its bottom for another row.
+                     """)),
+                 columns=2),
             *md(f"""
                 # Looking after the hens
 

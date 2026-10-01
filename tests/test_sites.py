@@ -1,6 +1,7 @@
 """Published websites: the publish API (validation, uniqueness, ownership) and
 serving at <app>/v/<name> and on custom domains."""
 
+import re
 import uuid
 
 import pytest
@@ -107,7 +108,7 @@ def test_site_object(client):
     assert site["url"] == "http://testserver/v/farm"  # BASE_URL in tests
     assert site["custom_url"] is None and site["preview_url"] == "/v/farm/"
     assert site["dns"] == {"type": "A", "name": None, "value": None}
-    assert site["options"] == {"show_nav": True}
+    assert site["options"] == {"show_header": True, "show_nav": True}
     assert client.get(f"/api/pages/{ids['farm']}/site").json() == site
     assert client.get("/api/sites").json() == [site]
     assert client.get(f"/api/pages/{ids['eggs']}/site").status_code == 404
@@ -117,14 +118,15 @@ def test_update_keeps_one_site_per_page(client):
     ids = farm(client)
     r = publish(client, ids["farm"], slug="Sonnenhof", custom_domain="HTTPS://Www.Example.org/",
                 template="docs", enabled=False,
-                options={"title": " Sonnenhof ", "description": "Eggs.", "footer": "", "show_nav": False,
-                         "accent": "#C2410C", "unknown": 1})
+                options={"title": " Sonnenhof ", "description": "Eggs.", "footer": "", "show_header": False,
+                         "show_nav": False, "accent": "#C2410C", "unknown": 1})
     assert r.status_code == 200, r.text
     site = r.json()
     assert site["id"] == ids["site"]["id"]
     assert site["slug"] == "sonnenhof" and site["custom_domain"] == "www.example.org"
     assert site["custom_url"] == "http://www.example.org" and site["dns"]["name"] == "www.example.org"
-    assert site["options"] == {"title": "Sonnenhof", "description": "Eggs.", "show_nav": False, "accent": "#c2410c"}
+    assert site["options"] == {"title": "Sonnenhof", "description": "Eggs.", "show_header": False, "show_nav": False,
+                               "accent": "#c2410c"}
     assert len(client.get("/api/sites").json()) == 1
     # Leaving the name out keeps the current one.
     assert publish(client, ids["farm"], slug=None).json()["slug"] == "sonnenhof"
@@ -142,6 +144,7 @@ def test_update_keeps_one_site_per_page(client):
     ({"custom_domain": "1.2.3.4"}, 422),
     ({"options": {"accent": "red"}}, 422),
     ({"options": {"show_nav": "yes"}}, 422),
+    ({"options": {"show_header": 0}}, 422),
     ({"options": {"title": 5}}, 422),
     ({"options": {"footer": "x" * 501}}, 422),
 ])
@@ -371,6 +374,31 @@ def test_every_template_renders(client, template):
     # Plain text, also when the landing hero takes the first paragraph.
     assert '<meta name="description" content="Welcome to the farm.">' in root
     assert get(client, "/nope").status_code == 404
+
+
+HEADERS = {"minimal": "topbar", "docs": "docs-top", "blog": "blog-top", "landing": "land-nav"}
+
+
+@pytest.mark.parametrize("template", list(HEADERS))
+def test_header_can_be_hidden(client, template):
+    ids = farm(client)
+    header = f'<header class="{HEADERS[template]}">'
+    no_header = re.compile(r'<body class="[^"]*\bno-header\b')
+    publish(client, ids["farm"], template=template)
+    html = get(client, "/").text
+    assert header in html and 'class="brand"' in html and not no_header.search(html)
+
+    publish(client, ids["farm"], template=template, options={"show_header": False})
+    for path in ("/", "/chickens", "/chickens/breeds"):
+        html = get(client, path).text
+        assert 'class="brand"' not in html and no_header.search(html), (template, path)
+        # Docs keeps a bar on phones, for the button that opens the sidebar.
+        assert (header in html) == (template == "docs"), (template, path)
+    # A subpage one level down still links back to the start.
+    assert 'href="/v/farm/"' in get(client, "/chickens").text
+    if template == "docs":
+        publish(client, ids["farm"], template=template, options={"show_header": False, "show_nav": False})
+        assert "docs-top" not in get(client, "/chickens").text.split("</style>", 1)[1]
 
 
 def test_switched_off_site_is_a_preview_for_its_owner(client):

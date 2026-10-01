@@ -267,7 +267,7 @@ class Site(Base):
     custom_domain: Mapped[str | None] = mapped_column(String(253), unique=True, index=True)
     template: Mapped[str] = mapped_column(String(40), default="minimal", nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # {"title", "description", "footer", "show_nav", "accent"}; see app/sites.py.
+    # {"title", "description", "footer", "show_header", "show_nav", "accent"}; see app/sites.py.
     options: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

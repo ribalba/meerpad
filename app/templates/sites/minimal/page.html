@@ -47,6 +47,7 @@
 }
 {% endblock %}
 {% block body %}
+{% if site.show_header %}
 <header class="topbar">
 <div class="topbar-inner">
 <a class="brand" href="{{ site.home }}">{{ site.icon }}<span>{{ site.title }}</span></a>
@@ -59,6 +60,7 @@
 {% endif %}
 </div>
 </header>
+{% endif %}
 {% if breadcrumbs %}
 <div class="crumb-row">{{ m.crumbs(breadcrumbs, page) }}</div>
 {% endif %}

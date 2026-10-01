@@ -206,6 +206,123 @@ def test_crlf_input():
     assert parse_markdown("# T\r\n\r\n- a\r\n- b\r\n") == [B("heading_1", "T"), B("bulleted_list", "a"), B("bulleted_list", "b")]
 
 
+# --- Grids (DESIGN §2) ------------------------------------------------------------------
+
+
+def C(*children):  # a grid cell
+    return B("grid_cell", children=list(children))
+
+
+GRID_MD = """<grid columns="2">
+<cell>
+
+![](https://example.com/a.png)
+
+</cell>
+<cell>
+
+The text beside the picture.
+
+</cell>
+<cell>
+</cell>
+</grid>
+"""
+GRID = B("grid", "", {"columns": 2}, [
+    C(B("image", "", {"url": "https://example.com/a.png"})),
+    C(B("paragraph", "The text beside the picture.")),
+    C(),
+])
+
+
+def test_grid_is_written_tag_by_tag():
+    assert blocks_to_markdown([GRID]) == GRID_MD
+    assert blocks_to_markdown([B("grid", "", {"columns": 3})]) == '<grid columns="3">\n</grid>\n'
+
+
+def test_grid_parses():
+    assert roundtrip(GRID_MD) == [GRID]
+    # A grid ends the paragraph above it; tags and attributes in any case.
+    assert roundtrip("Above\n<GRID Columns='1'><cell>x</cell></GRID>") == [
+        B("paragraph", "Above"), B("grid", "", {"columns": 1}, [C(B("paragraph", "x"))]),
+    ]
+
+
+def test_nested_grids_and_empty_cells():
+    tree = [B("grid", "", {"columns": 2}, [
+        C(B("paragraph", "a")),
+        C(),
+        C(B("grid", "", {"columns": 1}, [C(B("paragraph", "b"))])),
+    ])]
+    md = blocks_to_markdown(tree)
+    assert md == (
+        '<grid columns="2">\n<cell>\n\na\n\n</cell>\n<cell>\n</cell>\n<cell>\n\n'
+        '<grid columns="1">\n<cell>\n\nb\n\n</cell>\n</grid>\n\n</cell>\n</grid>\n'
+    )
+    assert roundtrip(md) == tree
+
+
+def test_grids_inside_other_blocks():
+    grid = B("grid", "", {"columns": 2}, [
+        C(B("bulleted_list", "a"), B("bulleted_list", "b")), C(B("code", "x", {"language": "py"})),
+    ])
+    tree = [
+        B("bulleted_list", "item", children=[grid]),
+        B("toggle", "More", children=[grid]),
+        B("callout", "Note", {"icon": "💡"}, [grid]),
+    ]
+    assert parse_markdown(blocks_to_markdown(tree)) == tree
+
+
+def test_blocks_outside_cells_make_cells_of_their_own():
+    tree = roundtrip("<grid>\nBefore the cells.\n<cell>\nIn a cell.\n</cell>\n\n- after\n- them\n</grid>")
+    assert tree == [B("grid", "", {"columns": 3}, [
+        C(B("paragraph", "Before the cells.")), C(B("paragraph", "In a cell.")),
+        C(B("bulleted_list", "after"), B("bulleted_list", "them")),
+    ])]
+    # Found by parsing, so a grid between the cells stays whole: its own
+    # <cell> lines do not end the blocks outside the outer grid's cells.
+    tree = roundtrip("<grid>\n<grid>\n<cell>\nx\n</cell>\n<cell>\ny\n</cell>\n</grid>\n</grid>")
+    inner = B("grid", "", {"columns": 2}, [C(B("paragraph", "x")), C(B("paragraph", "y"))])
+    assert tree == [B("grid", "", {"columns": 1}, [C(inner)])]
+
+
+def test_a_closing_tag_without_its_cell_is_dropped():
+    # The second cell's <cell> was deleted by hand.
+    tree = roundtrip('<grid columns="2">\n<cell>\n\na\n\n</cell>\n\nb\n</cell>\n</grid>')
+    assert tree == [B("grid", "", {"columns": 2}, [C(B("paragraph", "a")), C(B("paragraph", "b"))])]
+
+
+@pytest.mark.parametrize("tag,cells,columns", [
+    ("<grid>", 3, 3), ("<grid>", 0, 1), ("<grid>", 8, 6),
+    ('<grid columns="0">', 2, 1), ('<grid columns="9">', 2, 6), ("<grid columns=4>", 1, 4),
+    ('<grid columns="003">', 1, 3), ('<grid columns="' + "9" * 5000 + '">', 1, 6), ('<grid columns="two">', 2, 2),
+])
+def test_grid_columns_when_reading(tag, cells, columns):
+    [grid] = roundtrip(tag + "\n" + "<cell>\nx\n</cell>\n" * cells + "</grid>")
+    assert grid.props == {"columns": columns} and len(grid.children) == cells
+
+
+@pytest.mark.parametrize("props,columns", [
+    ({}, 2), ({"columns": 0}, 1), ({"columns": 7}, 6), ({"columns": "3"}, 2), ({"columns": True}, 2),
+    ({"columns": 4.0}, 4), ({"columns": 2.5}, 2),
+])
+def test_grid_columns_when_writing(props, columns):
+    md = blocks_to_markdown([B("grid", "", props, [C(B("paragraph", "x"))])])
+    assert md.startswith(f'<grid columns="{columns}">\n') and parse_markdown(md)[0].props == {"columns": columns}
+
+
+def test_lenient_trees_are_written_as_cells():
+    # A grid child that is not a cell is a cell holding it; a cell on its own is its content.
+    tree = [
+        B("grid", "", {"columns": 2}, [B("paragraph", "loose"), C(B("paragraph", "x"))]),
+        C(B("paragraph", "stray")),
+    ]
+    assert blocks_to_markdown(tree) == (
+        '<grid columns="2">\n<cell>\n\nloose\n\n</cell>\n<cell>\n\nx\n\n</cell>\n</grid>\n\nstray\n'
+    )
+
+
 # --- Links and icons ------------------------------------------------------------------
 
 
@@ -316,6 +433,21 @@ continued
 
 ![](https://example.com/a.png)
 
+<grid columns="2">
+<cell>
+
+![](https://example.com/b.png)
+
+</cell>
+<cell>
+
+Beside it, **bold**.
+
+- a list
+
+</cell>
+</grid>
+
 ```sh
 echo hi
 ```
@@ -329,7 +461,7 @@ $$
     tree = roundtrip(md)
     assert [b.type for b in tree] == [
         "heading_1", "paragraph", "bulleted_list", "bulleted_list", "quote", "callout", "toggle",
-        "table", "image", "code", "equation", "divider",
+        "table", "image", "grid", "code", "equation", "divider",
     ]
     assert tree[3].text == "two\ncontinued"
 

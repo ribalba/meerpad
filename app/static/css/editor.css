@@ -388,6 +388,47 @@
 .tbl-tool:hover { background: var(--hover-tint); color: var(--text); }
 .tbl-tool[aria-pressed="true"] { color: var(--accent); background: var(--accent-weak); }
 
+/* --- grids ---------------------------------------------------------------------------------- */
+/* The cells are the grid's children, laid out by CSS in --grid-cols columns,
+   row by row (app.editor.grid.js). The column gap is the gutter's width, so a
+   block in the second column has its handle beside it, not over the first.
+   A cell stretches to its row's height: the space below a short cell's
+   blocks is there to click into, or drop onto. */
+.grid-frame { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; margin: 4px 0; }
+.blk-grid[class*=" bg-"] > .grid-frame { padding: 12px 14px; }
+.grid-main { display: flex; align-items: stretch; gap: 4px; min-width: 0; }
+.grid-body { flex: 1; min-width: 0; }
+.grid-body > .blk-children { display: grid; grid-template-columns: repeat(var(--grid-cols, 2), minmax(0, 1fr));
+  gap: 10px 46px; padding-left: 0; }
+.blk-grid_cell { display: flex; flex-direction: column; min-width: 0; margin: 0; }
+.blk-grid_cell > .cell-frame { flex: 1; flex-direction: column; align-items: stretch; }
+.cell-frame > .blk-children { flex: 1; padding-left: 0; }
+.cell-frame > .blk-children:empty { min-height: 2.75em; }
+.editor:not(.is-readonly) .cell-frame > .blk-children:empty { display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--border-strong); border-radius: 4px; color: var(--text-faint); font-size: .85em; cursor: text; }
+.editor:not(.is-readonly) .cell-frame > .blk-children:empty::before { content: "Click to write, or drop a block here";
+  padding: 4px 8px; text-align: center; }
+.editor:not(.is-readonly) .blk-grid:hover > .grid-frame > .grid-main > .grid-body > .blk-children > .blk-grid_cell > .cell-frame {
+  outline: 1px dashed var(--border); outline-offset: 3px; }
+.cell-menu-btn { position: absolute; top: -10px; right: -12px; z-index: 4; display: inline-flex; align-items: center;
+  justify-content: center; width: 24px; height: 20px; padding: 0; border: 0; border-radius: 5px;
+  background: var(--popover, var(--bg)); box-shadow: var(--shadow); color: var(--text-muted);
+  opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+.blk-grid_cell:hover > .cell-frame > .cell-menu-btn, .cell-menu-btn:focus-visible { opacity: 1; pointer-events: auto; }
+.cell-menu-btn:hover { color: var(--text); }
+.grid-add { flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0;
+  border-radius: 4px; background: var(--hover-tint-soft); color: var(--text-faint); opacity: 0; transition: opacity .12s ease; }
+.grid-add:hover { background: var(--hover-tint); color: var(--text-muted); }
+.grid-add-col { width: 18px; }
+.grid-add-row { height: 18px; margin-top: 6px; }
+.blk-grid:hover > .grid-frame > .grid-main > .grid-add-col, .blk-grid:hover > .grid-frame > .grid-add-row { opacity: 1; }
+.blk-grid.is-full > .grid-frame > .grid-main > .grid-add-col { visibility: hidden; }
+/* A grid's row holds all of its cells, so hovering it is not hovering the
+   pictures in them: an image's tools show for that image only. */
+.blk-grid:hover > .blk-row .media-tools, .blk-grid.is-selected > .blk-row .media-tools { opacity: 0; }
+.blk-grid .blk:not(.blk-grid):not(.blk-grid_cell):hover > .blk-row .media-tools,
+.blk-grid .blk.is-selected > .blk-row .media-tools, .blk-grid .blk .media-tools:focus-within { opacity: 1; }
+
 /* --- uploads -------------------------------------------------------------------------------- */
 .blk-uploading { display: flex; align-items: center; gap: 10px; margin: 4px 0; padding: 9px 12px; border-radius: 4px;
   background: var(--hover-tint-soft); color: var(--text-muted); font-size: .875em; }
@@ -483,6 +524,10 @@ body.editor-dragging, body.editor-dragging * { cursor: grabbing !important; user
   .tbl td, .tbl th { min-width: 90px; }
   .code-copy { opacity: 1; }
   .tbl-tools { top: auto; bottom: -34px; }
+}
+/* A phone's column is too narrow for cells side by side: they stack, in order. */
+@media (max-width: 560px) {
+  .grid-body > .blk-children { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

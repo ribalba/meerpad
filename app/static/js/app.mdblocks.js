@@ -21,6 +21,7 @@
                               that block's Markdown when nobody edited it.
      nodesFromTree(tree)      App.store.blockTree output -> nodes (with `id`)
      pageToMarkdown(pageId)   a stored page as a Markdown document
+     gridColumns(props)       a grid block's column count (docs/DESIGN.md §2)
 
    Two rules keep the round trip exact:
 
@@ -34,7 +35,7 @@
      and parse() counts runs of blank lines back into empty paragraphs.
 
    Why not a CommonMark library: this Markdown is not quite CommonMark (tight
-   lists of mixed kinds, HTML containers for toggles and callouts, soft breaks
+   lists of mixed kinds, HTML containers for toggles, callouts and grids, soft breaks
    as plain newlines), and a general parser would turn inline Markdown into a
    tree we would then have to print back. A line classifier that leaves inline
    text alone is both simpler and exact.
@@ -228,13 +229,15 @@ App.mdblocks = (() => {
   const TASK = /^\[([ xX])\](?:[ \t]+(.*))?$/;
   const DETAILS_OPEN = /^<details(?:\s[^>]*)?>/i;
   const ASIDE_OPEN = /^<aside(?:\s[^>]*)?>/i;
+  const GRID_OPEN = /^<grid(?:\s[^>]*)?>/i;
+  const CELL_OPEN = /^<cell(?:\s[^>]*)?>/i;
   const BR_LINE = /^<br\s*\/?>[ \t]*$/i;
   const MATH_ONE = /^\$\$(.+)\$\$[ \t]*$/;
   const SEP_CELL = /^:?-+:?$/;
   // Written escaped although not block syntax on their own: a pipe row
   // (spec'd), a $$ that only looks like math, and the container tags, which
-  // must never close or open a toggle or callout from inside a paragraph.
-  const EXTRA_ESCAPE = /^(?:\||\$\$|<\/?(?:details|summary|aside)\b)/i;
+  // must never close or open a toggle, callout or grid from inside a paragraph.
+  const EXTRA_ESCAPE = /^(?:\||\$\$|<\/?(?:details|summary|aside|grid|cell)\b)/i;
 
   function fenceOpen(t) {
     const m = FENCE_OPEN.exec(t);
@@ -276,6 +279,7 @@ App.mdblocks = (() => {
     if (HEADING.test(t)) return "heading";
     if (DETAILS_OPEN.test(t)) return "toggle";
     if (ASIDE_OPEN.test(t)) return "callout";
+    if (GRID_OPEN.test(t)) return "grid";
     if (BR_LINE.test(t)) return "br";
     if (t.startsWith("<!--")) return "comment";
     if (t[0] === ">") return "quote";
@@ -361,7 +365,10 @@ App.mdblocks = (() => {
           j++;
           end = j;
         }
-        last.children.push(...parseLines(dedentAll(lines.slice(runStart, end))));
+        const kids = parseLines(dedentAll(lines.slice(runStart, end)));
+        // A grid holds only cells: blocks indented under one are a cell more.
+        if (last.type === "grid") { if (kids.length) last.children.push(node("grid_cell", "", {}, kids)); }
+        else last.children.push(...kids);
         i = end;
         continue;
       }
@@ -387,6 +394,7 @@ App.mdblocks = (() => {
       }
       case "toggle": return parseToggle(lines, i);
       case "callout": return parseCallout(lines, i);
+      case "grid": return parseGrid(lines, i);
       case "br": return { node: node("paragraph"), next: i + 1 };
       case "comment": {
         let j = i;
@@ -665,6 +673,63 @@ App.mdblocks = (() => {
     return { node: node("callout", text, { icon }, children), next };
   }
 
+  /* The column count as docs/DESIGN.md §2 reads it: 1 to 6, and 2 for
+     anything that is not a whole number. */
+  function gridColumns(props) {
+    const c = props && props.columns;
+    return Number.isInteger(c) ? Math.max(1, Math.min(6, c)) : 2;
+  }
+
+  /* <grid columns="N"> and its <cell>s. Blocks inside the grid but outside
+     every cell (typed by hand) make a cell of their own, and a grid without
+     `columns` is one row of all its cells. */
+  function parseGrid(lines, i) {
+    const { content, next } = htmlContainer(lines, i, "grid", GRID_OPEN);
+    const attr = /\bcolumns\s*=\s*["']?(\d+)/i.exec(GRID_OPEN.exec(lstrip(lines[i]))[0]);
+    const cells = [];
+    let loose = [];
+    const flush = () => {
+      if (loose.some((l) => !isBlank(l))) {
+        const kids = parseLines(dedentAll(loose));
+        if (kids.length) cells.push(node("grid_cell", "", {}, kids));
+      }
+      loose = [];
+    };
+    // Containers between the cells (a grid, a toggle, a callout) are taken
+    // whole, so their own <cell> lines stay theirs. A </cell> that closes
+    // nothing goes: kept as text, it would close the cell it is written into
+    // (app/mdblocks.py drops it too).
+    const CONTAINERS = [["grid", GRID_OPEN], ["details", DETAILS_OPEN], ["aside", ASIDE_OPEN]];
+    let fence = null;
+    for (let j = 0; j < content.length; j++) {
+      const t = lstrip(content[j]);
+      const box = fence ? null : CONTAINERS.find(([, re]) => re.test(t));
+      if (fence) {
+        const m = FENCE_CLOSE.exec(t);
+        if (m && m[1][0] === fence.ch && m[1].length >= fence.len) fence = null;
+      } else if (CELL_OPEN.test(t)) {
+        flush();
+        const cell = htmlContainer(content, j, "cell", CELL_OPEN);
+        cells.push(node("grid_cell", "", {}, parseLines(dedentAll(cell.content))));
+        j = cell.next - 1;
+        continue;
+      } else if (/^<\/cell>/i.test(t)) {
+        continue;
+      } else if (box) {
+        const inner = htmlContainer(content, j, box[0], box[1]);
+        loose.push(...content.slice(j, inner.next));
+        j = inner.next - 1;
+        continue;
+      } else {
+        fence = fenceOpen(t);
+      }
+      loose.push(content[j]);
+    }
+    flush();
+    const columns = gridColumns({ columns: attr ? Number(attr[1]) : cells.length });
+    return { node: node("grid", "", { columns }, cells), next };
+  }
+
   // --- toMarkdown -----------------------------------------------------------------
 
   /* Always ends in one newline, which parse() does not count as a blank
@@ -711,6 +776,10 @@ App.mdblocks = (() => {
       case "toggle": return toggleMd(text, kids);
       case "quote": return quoteMd(text, kids);
       case "callout": return calloutMd(text, props, kids);
+      case "grid": return gridMd(props, kids);
+      // A cell is written by its grid. One on its own (it has no meaning
+      // outside a grid) is only its content; as a signature it is the tag.
+      case "grid_cell": return withChildren ? serializeBlocks(kids) : "<cell>\n</cell>";
       default: break;
     }
     // Blocks without container syntax carry their children indented by two,
@@ -813,6 +882,15 @@ App.mdblocks = (() => {
     const body = [`${icon} ${lines[0]}`.trimEnd(), ...escapeLines(lines.slice(1), false)];
     if (kids.length) body.push("", serializeBlocks(kids));
     return `<aside>\n${body.join("\n")}\n</aside>`;
+  }
+
+  /* Each tag on a line of its own, the cells' content not indented. A child
+     that is not a cell (only another client could put one there) is written
+     as a cell holding it, which is how the editor shows it too. */
+  function gridMd(props, kids) {
+    const cell = (blocks) => (blocks.length ? `<cell>\n\n${serializeBlocks(blocks)}\n\n</cell>` : "<cell>\n</cell>");
+    const cells = kids.map((k) => cell(k.type === "grid_cell" ? (Array.isArray(k.children) ? k.children : []) : [k]));
+    return [`<grid columns="${gridColumns(props)}">`, ...cells, "</grid>"].join("\n");
   }
 
   // --- store trees ----------------------------------------------------------------
@@ -1293,5 +1371,5 @@ App.mdblocks = (() => {
     return tidy(nodes);
   }
 
-  return { parse, fromHtml, toMarkdown, blockMarkdown, nodesFromTree, pageToMarkdown };
+  return { parse, fromHtml, toMarkdown, blockMarkdown, nodesFromTree, pageToMarkdown, gridColumns };
 })();
