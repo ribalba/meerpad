@@ -69,6 +69,7 @@ from .render import (
     render_properties,
     row_date,
     slugify,
+    tabler_icon,
     truncate,
 )
 from .services import PageTree
@@ -92,6 +93,12 @@ TEMPLATE_IDS = frozenset(t["id"] for t in TEMPLATES)
 SLUG_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 DEFAULT_ACCENT = "#2383e2"
 MADE_WITH_URL = "https://meerpad.com"
+# A Tabler icon's colour in the favicon: the light --c-* tokens of
+# templates/sites/_theme.css, and its --text for none.
+ICON_INK = {
+    "": "#37352f", "gray": "#787774", "brown": "#9f6b53", "orange": "#d9730d", "yellow": "#cb912f",
+    "green": "#448361", "blue": "#337ea9", "purple": "#9065b0", "pink": "#c14c8a", "red": "#d44c47",
+}
 
 PAGE_CACHE = "public, max-age=60"
 FILE_CACHE = "public, max-age=3600"
@@ -442,13 +449,25 @@ def _site_options(site: Site) -> dict:
 
 
 def _favicon(db: DBSession, smap: SiteMap, prefix: str, cache: str) -> Response:
-    """The root page's emoji as an SVG icon, or its first letter on the accent."""
+    """The root page's emoji or Tabler icon as an SVG icon, or its first letter
+    on the accent."""
     root = smap.pages[smap.root_id]
     icon = (root.icon or "").strip()
     if icon.startswith("file:") or icon.lower().startswith(("http://", "https://")):
         url = SiteContext(db, smap, prefix).file_url(icon[5:]) if icon.startswith("file:") else icon
         if url and (url.startswith("/") or url.lower().startswith("https://")):
             return RedirectResponse(url, status_code=302, headers={"Cache-Control": cache})
+        icon = ""
+    if icon.startswith("icon:"):
+        found = tabler_icon(icon)
+        if found:
+            # A favicon has no text colour to inherit; ``color`` stands in for
+            # it, so Tabler's few currentColor fills match the stroke.
+            inner, colour = found
+            svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+                   f'color="{ICON_INK[colour]}" fill="none" stroke="currentColor" '
+                   f'stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">{inner}</svg>')
+            return Response(svg, media_type="image/svg+xml", headers=_headers(cache))
         icon = ""
     if icon and len(icon) <= 16:
         svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'

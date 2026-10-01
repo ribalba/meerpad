@@ -866,10 +866,10 @@ App.database = (() => {
     return frag;
   }
 
-  /* A row's icon: emoji or image. `fallback` shows a quiet page glyph. */
+  /* A row's icon: emoji, Tabler icon or image. `fallback` shows a quiet page glyph. */
   function rowIcon(row, { fallback = false } = {}) {
     const ref = row && row.icon ? App.files.ref(row.icon) : null;
-    if (ref && ref.kind === "emoji") return el("span", { class: "db-row-icon", text: ref.text });
+    if (App.files.isGlyph(ref)) return el("span", { class: "db-row-icon" }, App.glyph(ref));
     if (ref && ref.kind === "url") return el("span", { class: "db-row-icon" }, el("img", { src: ref.url, alt: "", loading: "lazy" }));
     if (fallback) return el("span", { class: "db-row-icon db-row-icon-empty", html: icon("page", 16) });
     return null;
@@ -2047,7 +2047,7 @@ App.database = (() => {
 
     function drawInlineHead(page) {
       const ref = page.icon ? App.files.ref(page.icon) : null;
-      const ic = ref && ref.kind === "emoji" ? el("span", { class: "db-inline-icon", text: ref.text })
+      const ic = App.files.isGlyph(ref) ? el("span", { class: "db-inline-icon" }, App.glyph(ref))
         : ref && ref.kind === "url" ? el("span", { class: "db-inline-icon" }, el("img", { src: ref.url, alt: "" }))
           : el("span", { class: "db-inline-icon db-inline-icon-empty", html: icon("database", 18) });
       return el("div", { class: "db-inline-head" },

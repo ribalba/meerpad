@@ -176,6 +176,17 @@ def test_aside_with_nested_blocks_and_same_line_form():
     ]
 
 
+def test_aside_with_a_tabler_icon():
+    tree = roundtrip("<aside>\nicon:tractor:green Fields\n\n- one\n</aside>\n\n<aside>icon:tractor</aside>")
+    assert tree == [
+        B("callout", "Fields", {"icon": "icon:tractor:green"}, [B("bulleted_list", "one")]),
+        B("callout", "", {"icon": "icon:tractor"}),
+    ]
+    tree = [B("callout", "Plough\nthe field", {"icon": "icon:tractor:green"})]
+    assert blocks_to_markdown(tree) == "<aside>\nicon:tractor:green Plough\nthe field\n</aside>\n"
+    assert parse_markdown(blocks_to_markdown(tree)) == tree
+
+
 def test_details_becomes_toggle():
     md = "<details>\n<summary>More **info**</summary>\n\nHidden text\n\n- item\n\n</details>\n\n<details><summary>Short</summary>x</details>"
     tree = roundtrip(md)
@@ -359,6 +370,17 @@ def test_whole_link():
     ("👍🏽 ok", "👍🏽", "ok"),
     ("PS: none", None, "PS: none"),
     ("", None, ""),
+    ("icon:tractor Fields", "icon:tractor", "Fields"),
+    ("icon:tractor:green  Fields\nmore", "icon:tractor:green", "Fields\nmore"),
+    ("icon:tractor:green", "icon:tractor:green", ""),
+    ("icon:a-b-2\tx", "icon:a-b-2", "x"),
+    ("icon:no-such-icon:teal x", "icon:no-such-icon:teal", "x"),  # the shape is checked, not the data
+    ("icon:", None, "icon:"),
+    ("icon: tractor", None, "icon: tractor"),
+    ("icon:Tractor x", None, "icon:Tractor x"),
+    ("icon:tractor, x", None, "icon:tractor, x"),
+    ("icon:tractor:green:x y", None, "icon:tractor:green:x y"),
+    ("iconic text", None, "iconic text"),
 ])
 def test_split_icon(text, icon, rest):
     assert split_icon(text) == (icon, rest)

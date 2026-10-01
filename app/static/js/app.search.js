@@ -80,7 +80,9 @@ App.search = (() => {
   /* The search bar under the toolbar, meerpic's filter bar in shape: one input
      across the page with the results dropping down below it. One element for
      the whole session, moved into each page view as it is built, so what was
-     typed survives opening a result. */
+     typed survives opening a result. Hidden until the sidebar's search button
+     or Ctrl/Cmd+K shows it; it hides again once a result is opened, on Escape
+     with nothing typed, or when it loses the focus empty. */
   let barEl = null;
   let barApi = null;
   function bar() {
@@ -91,7 +93,7 @@ App.search = (() => {
     });
     const clear = App.el("button", { class: "icon-btn filter-clear", type: "button", title: "Clear (Esc)", "aria-label": "Clear", html: App.icon("x", 15), hidden: true });
     const list = App.el("div", { class: "filter-results", role: "listbox", hidden: true });
-    barEl = App.el("div", { class: "filter-region" },
+    barEl = App.el("div", { class: "filter-region", hidden: true },
       App.el("div", { class: "filter-bar" }, App.el("span", { class: "filter-icon", html: App.icon("search", 16) }), input, clear),
       list);
     let items = [];
@@ -99,11 +101,11 @@ App.search = (() => {
     let timer = null;
 
     const close = () => { list.hidden = true; };
+    const hide = () => { close(); barEl.hidden = true; input.blur(); };
     function pick(i) {
       const it = items[i];
       if (!it) return;
-      close();
-      input.blur();
+      hide();
       App.nav.openPage(it.page.id, it.blockId ? { blockId: it.blockId } : {});
     }
     function setActive(i) {
@@ -149,7 +151,12 @@ App.search = (() => {
     }
     input.addEventListener("focus", render);
     input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(render, 40); });
-    input.addEventListener("blur", () => setTimeout(close, 120));
+    input.addEventListener("blur", () => setTimeout(() => {
+      if (document.activeElement === input) return;
+      close();
+      // Not when the whole window lost the focus (another app in front).
+      if (!input.value.trim() && document.hasFocus()) barEl.hidden = true;
+    }, 120));
     input.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") { e.preventDefault(); setActive(active + 1); }
       else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
@@ -157,19 +164,34 @@ App.search = (() => {
       else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        if (input.value) { input.value = ""; render(); } else { close(); input.blur(); }
+        if (input.value) { input.value = ""; render(); } else hide();
       }
     });
     clear.addEventListener("mousedown", (e) => e.preventDefault());
     clear.addEventListener("click", () => { input.value = ""; render(); input.focus(); });
-    barApi = { focus: () => { input.focus(); input.select(); } };
+    barApi = {
+      show: () => {
+        // On a phone the sidebar drawer would cover it.
+        if (App.shell.isNarrow()) App.shell.closeDrawer();
+        barEl.hidden = false;
+        input.focus();
+        input.select();
+      },
+      hide,
+    };
     return barEl;
+  }
+
+  /* The sidebar's search button: shows the search, or hides it again. */
+  function toggle() {
+    if (barEl && barEl.isConnected && !barEl.hidden) barApi.hide();
+    else open();
   }
 
   function open() {
     // The bar is the search wherever a page view shows it; the dialog is the
     // fallback for screens without one.
-    if (barEl && barEl.isConnected && barEl.offsetParent !== null) { barApi.focus(); return; }
+    if (barEl && barEl.isConnected) { barApi.show(); return; }
     if (handle) { handle.focus(); return; }
     const input = App.el("input", {
       class: "search-input", type: "text", placeholder: "Search pages and text…",
@@ -249,11 +271,11 @@ App.search = (() => {
         if (timer) render(); // typed faster than the debounce: answer what is in the box
         pick(active);
       }
-      else if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "k" || e.key === "p")) { e.preventDefault(); modal.close(); }
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "p")) { e.preventDefault(); modal.close(); }
     });
     render();
     setTimeout(() => input.focus(), 0);
   }
 
-  return { open, bar, close: () => handle && handle.close(), highlight, snippet };
+  return { open, toggle, bar, close: () => handle && handle.close(), highlight, snippet };
 })();

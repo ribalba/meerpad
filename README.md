@@ -17,7 +17,8 @@ can become a **website** at `meerpad.com/v/name` or on your own domain. It is ho
 
 **Features:** blocks like Notion (text, headings, lists, to-dos, toggles, quotes, callouts,
 code, tables, images, files, bookmarks, embeds, equations) · grids, to put blocks side by
-side in rows and columns · Markdown shortcuts as you type,
+side in rows and columns · page and callout icons: every emoji, or one of 5,000 Tabler
+icons in nine colours · Markdown shortcuts as you type,
 and inline Markdown in meerail's dialect · `/` for every block, `[[` to link a page · drag
 handles · workspaces, each a page tree of its own · databases with table, board, list,
 gallery and Gantt views · offline first, synced across devices, merged field by field · share links to
@@ -107,7 +108,8 @@ Emphasis needs a word boundary, so `snake_case` stays literal.
 
 | Keys | |
 | --- | --- |
-| `Ctrl+S` (or `Ctrl+K`, `Ctrl+P`) | Search |
+| `Ctrl+K` (or `Ctrl+P`) | Search (or the search button in the sidebar) |
+| `Ctrl+S` | Save and sync now (every change also saves on its own) |
 | `Ctrl+N` in the desktop app, `Ctrl+Alt+N` in a browser | New page |
 | `Ctrl+B`, `Ctrl+I` | Bold, italic |
 | `Ctrl+E` | Inline code |
@@ -345,3 +347,7 @@ cd electron && make distinstall           # build and register it with the deskt
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE).
+
+Bundled in `app/static/vendor`, each with its licence next to it: highlight.js (BSD-3-Clause),
+Tabler Icons (MIT) and emojibase's emoji names (MIT, from Unicode CLDR).
+`tools/build_icons.py` fetches the icon and emoji data again.

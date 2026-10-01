@@ -1,4 +1,5 @@
-/* Shared UI pieces: popovers, menus, modals, and the page and emoji pickers.
+/* Shared UI pieces: popovers, menus, modals, and the page picker (the icon
+   picker is app.iconpicker.js).
 
    Everything floating is a child of <body>, positioned against an anchor
    (an element, a DOMRect, or {x, y}), kept on screen, and closed by Escape or a
@@ -127,7 +128,7 @@ App.ui = (() => {
           class: `menu-item${it.danger ? " danger" : ""}${it.checked ? " checked" : ""}`,
           role: "menuitem", type: "button", disabled: it.disabled || null,
         },
-        it.icon || it.iconHtml ? App.el("span", { class: "menu-icon", html: it.iconHtml || App.icon(it.icon) }) : (it.emoji ? App.el("span", { class: "menu-icon menu-emoji", text: it.emoji }) : null),
+        it.icon || it.iconHtml ? App.el("span", { class: "menu-icon", html: it.iconHtml || App.icon(it.icon) }) : (it.emoji ? App.el("span", { class: "menu-icon menu-emoji" }, App.glyph(it.emoji)) : null),
         App.el("span", { class: "menu-label" }, it.label, it.description ? App.el("small", { class: "menu-desc", text: it.description }) : null),
         it.hint ? App.el("span", { class: "menu-hint", text: it.hint }) : null,
         it.checked ? App.el("span", { class: "menu-check", html: App.icon("check", 14) }) : null,
@@ -296,7 +297,7 @@ App.ui = (() => {
     const itemFor = (p) => ({
       label: titleOf(p),
       description: pathOf(p),
-      ...(p.icon && !p.icon.includes(":") && !p.icon.startsWith("http") ? { emoji: p.icon } : { icon: p.kind === "database" ? "database" : "page" }),
+      ...(App.files.isGlyph(p.icon) ? { emoji: p.icon } : { icon: p.kind === "database" ? "database" : "page" }),
       onSelect: () => opts.onPick && opts.onPick(p),
     });
     const build = (q) => {
@@ -316,38 +317,5 @@ App.ui = (() => {
     return h;
   }
 
-  // A curated set; anything else can be typed or pasted into the field.
-  const EMOJI = ("📄 📝 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🗂️ 📁 📂 🗃️ 🗄️ 📋 📌 📍 📎 🖇️ ✏️ 🖊️ 🖋️ ✒️ 🖌️ 🖍️ 🔍 💡 🔦 🕯️ "
-    + "🏠 🏡 🏢 🏫 🏥 🏦 🏗️ 🏘️ 🌳 🌲 🌿 🍀 🌱 🌾 🌻 🌷 🌸 🍎 🍐 🍒 🍓 🥕 🥔 🌽 🍅 🥚 🧀 🍞 ☕ 🍷 🍺 "
-    + "🐄 🐖 🐑 🐐 🐓 🐔 🐣 🦆 🦢 🐝 🐴 🐕 🐈 🐇 🦔 🐟 🐞 🦋 🐌 🐛 "
-    + "💼 💻 🖥️ ⌨️ 🖱️ 📱 ☎️ 📞 📧 ✉️ 📨 📦 📫 🗓️ 📅 📆 ⏰ ⏱️ ⌛ 🧭 🗺️ 🌍 🌐 🚀 ✈️ 🚗 🚜 🚲 ⛵ "
-    + "🔧 🔨 🛠️ ⚙️ 🔩 🧰 🪛 🪚 🧱 🪵 🔌 🔋 💰 💶 💳 🧾 📈 📉 📊 🧮 ⚖️ 🔑 🗝️ 🔒 🔓 🛡️ "
-    + "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 ⭐ 🌟 ✨ 🔥 💧 ❄️ ☀️ 🌙 ⚡ 🌈 ☁️ 🎉 🎁 🎂 🎈 🎵 🎨 🎬 📷 🎮 🏆 🎯 "
-    + "✅ ☑️ ✔️ ❌ ⚠️ ❓ ❗ 💬 🗨️ 💭 🧠 👀 👋 🙌 👍 👎 🤝 🙏 💪 🧑‍💻 👩‍🌾 🧑‍🍳 👪 🧒 🧓 😀 😎 🤔 😴 🥳").split(" ");
-
-  /* Pick an emoji (or type any). opts: { onPick(emoji), onRemove(), onUpload(file) } */
-  function emojiPicker(anchor, opts = {}) {
-    const grid = App.el("div", { class: "emoji-grid" });
-    const custom = App.el("input", { class: "input emoji-input", type: "text", placeholder: "Type or paste any emoji", maxlength: "16" });
-    const wrap = App.el("div", { class: "emoji-picker" });
-    const bar = App.el("div", { class: "emoji-bar" }, custom);
-    if (opts.onRemove) bar.append(App.el("button", { class: "btn btn-small", type: "button", text: "Remove", onclick: () => { h.close(); opts.onRemove(); } }));
-    if (opts.onUpload) {
-      const fileInput = App.el("input", { type: "file", accept: "image/*", hidden: true });
-      fileInput.addEventListener("change", () => { if (fileInput.files[0]) { h.close(); opts.onUpload(fileInput.files[0]); } });
-      bar.append(fileInput, App.el("button", { class: "btn btn-small", type: "button", text: "Upload", onclick: () => fileInput.click() }));
-    }
-    for (const e of EMOJI) {
-      grid.append(App.el("button", { class: "emoji-btn", type: "button", text: e, title: e, onclick: () => { h.close(); opts.onPick && opts.onPick(e); } }));
-    }
-    custom.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && custom.value.trim()) { e.preventDefault(); h.close(); opts.onPick && opts.onPick(custom.value.trim()); }
-    });
-    wrap.append(bar, grid);
-    const h = popover(anchor, wrap, { className: "popover-emoji" });
-    setTimeout(() => custom.focus(), 0);
-    return h;
-  }
-
-  return { popover, menu, modal, confirm, prompt, pagePicker, emojiPicker, titleOf, pathOf, place, closeAll: () => current && current.close() };
+  return { popover, menu, modal, confirm, prompt, pagePicker, titleOf, pathOf, place, closeAll: () => current && current.close() };
 })();

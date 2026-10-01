@@ -45,6 +45,14 @@ App.page = (() => {
     view = null;
   }
 
+  /* What was typed and is still waiting for its debounce (the editor's text,
+     a Markdown edit, a database's title) goes to the store now: Ctrl/Cmd+S. */
+  function flush() {
+    if (!view) return;
+    try { if (view.editor && view.editor.flush) view.editor.flush(); } catch (e) { console.error(e); }
+    if (view.titleTimer) { clearTimeout(view.titleTimer); view.flushTitle && view.flushTitle(); }
+  }
+
   /* Build the view again for the same page, where the reader was. */
   function rebuild() {
     if (!view) return;
@@ -248,7 +256,7 @@ App.page = (() => {
       const btn = App.el("button", { class: "crumb crumb-ellipsis", type: "button", text: "…", title: "Show the full path" });
       btn.addEventListener("click", () => App.ui.menu(btn, hidden.map((h) => ({
         label: App.ui.titleOf(h.page),
-        ...(h.page.icon && App.files.ref(h.page.icon).kind === "emoji" ? { emoji: h.page.icon } : { icon: "page" }),
+        ...(App.files.isGlyph(h.page.icon) ? { emoji: h.page.icon } : { icon: "page" }),
         onSelect: () => App.nav.openPage(h.page.id),
       }))));
       nodes.push(btn);
@@ -504,7 +512,7 @@ App.page = (() => {
       const ref = App.files.ref(page.icon);
       const btn = App.el("button", { class: "page-icon", type: "button", title: view.readOnly ? "" : "Change icon", disabled: view.readOnly || null });
       if (ref.kind === "url") btn.append(App.el("img", { src: ref.url, alt: "" }));
-      else btn.textContent = ref.text || page.icon;
+      else btn.append(App.glyph(ref) || page.icon);
       if (!view.readOnly) btn.addEventListener("click", () => pickIcon(btn));
       head.append(btn);
     }
@@ -527,8 +535,8 @@ App.page = (() => {
   function pickIcon(anchor) {
     const pageId = view.pageId;
     const page = App.store.page(pageId);
-    App.ui.emojiPicker(anchor, {
-      onPick: (emoji) => App.store.updatePage(pageId, { icon: emoji }),
+    App.iconPicker(anchor, {
+      onPick: (icon) => App.store.updatePage(pageId, { icon }),
       onRemove: page && page.icon ? () => App.store.updatePage(pageId, { icon: null }) : undefined,
       onUpload: async (file) => {
         try {
@@ -656,7 +664,7 @@ App.page = (() => {
   }
 
   return {
-    configure, show, current, destroy, scrollToBlock,
+    configure, show, current, destroy, flush, scrollToBlock,
     editor: () => (view ? view.editor : null),
     site: (pageId) => sites.get(pageId),
   };

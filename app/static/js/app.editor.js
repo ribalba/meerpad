@@ -1623,7 +1623,10 @@ App.editor = (() => {
         scrollToBlock: (id) => this.scrollToBlock(id),
         setMarkdownMode: (on) => this.setMarkdownMode(on),
         isMarkdownMode: () => Boolean(this.md),
-        flush: () => this.flushAll(),
+        flush: () => {
+          this.flushAll();
+          if (this.md) { clearTimeout(this.md.timer); this.applyMarkdown(); }
+        },
         _editor: this,
       };
     }
@@ -1743,7 +1746,8 @@ App.editor = (() => {
     render(ed, el, b) {
       const row = h("div");
       const box = h("div", "callout-box");
-      const icon = h("span", "callout-icon", (b.props && b.props.icon) || "💡");
+      const icon = h("span", "callout-icon");
+      icon.append(App.glyph((b.props && b.props.icon) || "💡") || "💡");
       icon.setAttribute("role", "button");
       icon.setAttribute("aria-label", "Change icon");
       const body = h("div", "callout-body");

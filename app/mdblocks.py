@@ -185,9 +185,19 @@ def _is_emoji_start(ch: str) -> bool:
     return unicodedata.category(ch) == "So" and cp >= 0x2100
 
 
+# A Tabler icon (DESIGN §1) as a callout's first word: "icon:<name>" or
+# "icon:<name>:<colour>". Only its shape is checked; an unknown name or colour
+# is the renderer's business.
+TABLER_ICON_RE = re.compile(r"icon:[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z]+)?(?=\s|\Z)")  # as app.mdblocks.js ICON_REF
+
+
 def split_icon(text: str) -> tuple[str | None, str]:
-    """Split a leading emoji (with its modifiers, ZWJ parts and flag pair) off
-    ``text``: Notion writes a callout's icon as the first character of its text."""
+    """Split a leading emoji (with its modifiers, ZWJ parts and flag pair) or
+    Tabler icon off ``text``: Notion writes a callout's icon as the first
+    character of its text, and meerpad writes its own icons the same way."""
+    m = TABLER_ICON_RE.match(text)
+    if m:
+        return m.group(), text[m.end():].lstrip(" \t\n")
     if not text or not _is_emoji_start(text[0]):
         return None, text
     i = 1

@@ -360,7 +360,7 @@
         for (const r of App.store.search(q, 8)) {
           if (r.page.id === this.pageId) continue;
           options.push({ label: titleOf(r.page), desc: App.ui.pathOf ? App.ui.pathOf(r.page) : "", icon: r.page.kind === "database" ? "database" : "page",
-            emoji: r.page.icon && !r.page.icon.includes(":") && !r.page.icon.startsWith("http") ? r.page.icon : null,
+            emoji: App.files.isGlyph(r.page.icon) ? r.page.icon : null,
             run: () => apply(`/p/${r.page.id}`, titleOf(r.page)) });
         }
       }
@@ -371,7 +371,7 @@
         const b = h("button", `menu-item${o.danger ? " danger" : ""}${i === active ? " active" : ""}`);
         b.type = "button";
         const ic = h("span", `menu-icon${o.emoji ? " menu-emoji" : ""}`);
-        if (o.emoji) ic.textContent = o.emoji; else ic.innerHTML = App.icon(o.icon);
+        if (o.emoji) ic.append(App.glyph(o.emoji)); else ic.innerHTML = App.icon(o.icon);
         const lab = h("span", "menu-label", o.label);
         if (o.desc) lab.append(h("small", "menu-desc", o.desc));
         b.append(ic, lab);
@@ -528,6 +528,6 @@
 
   P.openIconPicker = function (anchor, el) {
     const id = el.dataset.id;
-    this.menu = App.ui.emojiPicker(anchor, { onPick: (emoji) => this.setProps(id, { icon: emoji }) });
+    this.menu = App.iconPicker(anchor, { onPick: (icon) => this.setProps(id, { icon }) });
   };
 })();

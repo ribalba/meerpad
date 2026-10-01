@@ -603,7 +603,7 @@
   function pageIcon(p, fallback) {
     const span = h("span", "pl-icon");
     const ref = p && p.icon ? App.files.ref(p.icon) : null;
-    if (ref && ref.kind === "emoji") span.textContent = ref.text;
+    if (App.files.isGlyph(ref)) span.append(App.glyph(ref));
     else if (ref && ref.kind === "url") {
       const img = h("img");
       img.src = ref.url;

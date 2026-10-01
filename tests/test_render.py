@@ -564,6 +564,41 @@ def test_gantt_falls_back_to_the_table():
     assert 'class="db-table"' in html and "gantt-bar" not in html
 
 
+# --- Tabler icons ------------------------------------------------------------------
+
+
+def test_tabler_icon_is_an_inline_svg():
+    ctx = FakeCtx()
+    html = str(icon_html("icon:tractor", ctx, "page-icon"))
+    assert html.startswith(
+        '<span class="page-icon icon-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="'
+    )
+    assert html.endswith("</svg></span>")
+    assert str(icon_html(" icon:tractor:green ", ctx, "nav-icon")).startswith(
+        '<span class="nav-icon icon-glyph c-green" aria-hidden="true"><svg ')
+    # Like the app (App.files.ref), anything after the colour is ignored.
+    assert 'class="icon icon-glyph c-red"' in str(icon_html("icon:tractor:red:extra", ctx))
+    html, _ = render(node("callout", "Fields", icon="icon:tractor:purple"))
+    assert '<span class="callout-icon icon-glyph c-purple" aria-hidden="true"><svg ' in html and "💡" not in html
+
+
+@pytest.mark.parametrize("colour", ["", "teal", "Green", "c-red", 'red" onclick="x'])
+def test_tabler_icon_with_an_unknown_colour_has_no_colour_class(colour):
+    html = str(icon_html(f"icon:tractor:{colour}", FakeCtx()))
+    assert html.startswith('<span class="icon icon-glyph" aria-hidden="true"><svg ') and "onclick" not in html
+
+
+@pytest.mark.parametrize("ref", [
+    "icon:", "icon::green", "icon:no-such-icon", "icon:Tractor", "icon:a b", "icon:tractor-", "icon:-tractor",
+    "icon:trac_tor", "icon: tractor", "icon:x\"><script>alert(1)</script>", "icon:__proto__",
+])
+def test_unknown_or_malformed_tabler_icon_draws_nothing(ref):
+    # Empty, so a caller's fallback glyph applies, and never read as an emoji.
+    html = icon_html(ref, FakeCtx())
+    assert not html and str(html) == ""
+
+
 # --- Escaping of everything else -------------------------------------------------
 
 
@@ -577,6 +612,8 @@ def test_icons_and_captions_are_escaped():
     assert 'onerror="' not in quoted and "&quot;onerror=&quot;1" in quoted
     html, _ = render(node("callout", "x", icon='"><script>alert(1)</script>'))
     assert "<script" not in html
+    html, _ = render(node("callout", "x", icon='icon:x"><script>alert(1)</script>'))
+    assert "<script" not in html and "icon:x" not in html
 
 
 def test_script_in_every_text_field_is_escaped():

@@ -263,8 +263,8 @@ App.import = (() => {
       const ws = App.store.workspace(st.wsId);
       const p = st.parentId ? App.store.page(st.parentId) : null;
       const isRoot = Boolean(ws && p && p.id === ws.root_page_id);
-      const icon = p && isEmoji(p.icon)
-        ? h("span", { class: "imp-parent-icon emoji", text: p.icon })
+      const icon = p && App.files.isGlyph(p.icon)
+        ? h("span", { class: "imp-parent-icon emoji" }, App.glyph(p.icon))
         : h("span", { class: "imp-parent-icon", html: App.icon(isRoot ? "home" : "page", 15) });
       fill(ui.parentBtn, icon,
         h("span", { class: "imp-parent-title", text: p ? App.ui.titleOf(p) : (ws ? ws.name : "Choose a page") }),

@@ -28,7 +28,6 @@ App.settings = (() => {
   ];
   const ALIASES = { token: "api-token", api: "api-token", apitoken: "api-token", theme: "appearance", workspace: "workspaces" };
 
-  const isEmoji = (icon) => icon && !icon.includes(":") && !/^https?:/i.test(icon);
   const mask = (t) => (t ? `${t.slice(0, 4)}${"•".repeat(Math.max(8, Math.min(28, t.length - 4)))}` : "");
   const initialOf = (me) => ((me && (me.name || me.email)) || "?").trim().charAt(0).toUpperCase() || "?";
   const shellQuote = (s) => `"${String(s).replace(/(["\\$`])/g, "\\$1")}"`;
@@ -249,14 +248,14 @@ App.settings = (() => {
       const icon = App.store.workspaceIcon(ws);
       const ref = icon && App.files && App.files.ref ? App.files.ref(icon) : null;
       if (ref && ref.kind === "url") return h("img", { src: ref.url, alt: "" });
-      if (isEmoji(icon)) return h("span", { class: "set-ws-emoji", text: icon });
+      if (App.files.isGlyph(ref)) return App.glyph(ref, "set-ws-emoji");
       return h("span", { class: "set-ws-letter", text: (ws.name || "?").trim().charAt(0).toUpperCase() || "?" });
     }
 
     function row(ws, i, all) {
       const iconBtn = h("button", { class: "set-ws-icon", type: "button", title: "Change icon", "aria-label": `Change the icon of ${ws.name}` }, iconNode(ws));
-      iconBtn.addEventListener("click", () => App.ui.emojiPicker(iconBtn, {
-        onPick: (emoji) => App.store.updateWorkspace(ws.id, { icon: emoji }),
+      iconBtn.addEventListener("click", () => App.iconPicker(iconBtn, {
+        onPick: (icon) => App.store.updateWorkspace(ws.id, { icon }),
         onRemove: App.store.workspaceIcon(ws) ? () => App.store.updateWorkspace(ws.id, { icon: null }) : null,
       }));
       const name = h("input", { class: "input set-ws-name", type: "text", value: ws.name || "", "aria-label": "Workspace name", maxlength: "200" });

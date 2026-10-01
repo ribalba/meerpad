@@ -102,7 +102,7 @@ code { font-family: var(--font-mono); font-size: .85em; }
 .warning-text { color: var(--warning); }
 
 /* Thin, quiet scrollbars where the content scrolls inside the window. */
-.sidebar, .page-scroll, .modal-body, .menu, .emoji-grid {
+.sidebar, .page-scroll, .modal-body, .menu, .ip-scroll {
   scrollbar-width: thin; scrollbar-color: var(--hover-tint-strong) transparent; }
 
 /* =========================================================================
@@ -427,6 +427,22 @@ button.tree-section-label:hover { color: var(--text-muted); }
 .pi-img { width: 18px; height: 18px; object-fit: cover; border-radius: 3px; }
 .pi-svg { color: var(--text-muted); }
 
+/* A Tabler page icon (App.tabler): a square sized by the font, the way an
+   emoji in the same place is. A little over 1em, because Tabler draws inside
+   a margin where an emoji fills its box. Drawn in the text colour, or in one
+   of the editor's nine. */
+.ti { display: inline-block; flex: 0 0 auto; width: 1.15em; height: 1.15em; line-height: 1; vertical-align: -.2em; }
+.ti > svg { display: block; width: 100%; height: 100%; }
+.ti.c-gray, .ip-swatch.c-gray { color: var(--ed-gray); }
+.ti.c-brown, .ip-swatch.c-brown { color: var(--ed-brown); }
+.ti.c-orange, .ip-swatch.c-orange { color: var(--ed-orange); }
+.ti.c-yellow, .ip-swatch.c-yellow { color: var(--ed-yellow); }
+.ti.c-green, .ip-swatch.c-green { color: var(--ed-green); }
+.ti.c-blue, .ip-swatch.c-blue { color: var(--ed-blue); }
+.ti.c-purple, .ip-swatch.c-purple { color: var(--ed-purple); }
+.ti.c-pink, .ip-swatch.c-pink { color: var(--ed-pink); }
+.ti.c-red, .ip-swatch.c-red { color: var(--ed-red); }
+
 /* =========================================================================
    Toolbar (meerpic's .toolbar), breadcrumbs, sync status, and the search
    bar under it (meerpic's filter bar)
@@ -616,14 +632,35 @@ button.tree-section-label:hover { color: var(--text-muted); }
   color: var(--text-muted); line-height: 1.45; }
 .page-picker { width: min(380px, calc(100vw - 16px)); }
 
-.popover-emoji { width: min(360px, calc(100vw - 16px)); }
-.emoji-picker { display: flex; flex-direction: column; max-height: min(400px, calc(100vh - 16px)); }
-.emoji-bar { display: flex; gap: .35rem; padding: .5rem; border-bottom: 1px solid var(--border); align-items: center; }
-.emoji-input { flex: 1; min-height: 28px; font-size: .84rem; }
-.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 2px; padding: .45rem;
-  overflow-y: auto; }
-.emoji-btn { height: 34px; border: 0; border-radius: 4px; background: none; font-size: 1.3rem; line-height: 1; padding: 0; }
-.emoji-btn:hover { background: var(--hover-tint); }
+/* The icon picker (app.iconpicker.js): tabs, the search, the skin tones or
+   colours, and the grid scrolling under them. Of a fixed height, so a tab
+   switch or a search does not move it about. */
+.popover-icons { width: min(412px, calc(100vw - 16px)); overflow: hidden; }
+.ip { display: flex; flex-direction: column; height: min(420px, calc(100vh - 16px)); }
+.ip-tabs { flex: 0 0 auto; }
+.ip-bar { display: flex; gap: .35rem; align-items: center; padding: .5rem .5rem .3rem; flex: 0 0 auto; }
+.ip-search { flex: 1; min-width: 0; min-height: 30px; font-size: .84rem; }
+.ip-tone { flex: 0 0 auto; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px;
+  background: none; font-size: 1.05rem; line-height: 1; }
+.ip-tone:hover { background: var(--hover-tint); }
+.ip-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 .6rem; flex: 0 0 auto; }
+.ip-options:not(:empty) { padding-bottom: .4rem; }
+.ip-swatch { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: currentColor;
+  color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.ip-swatch.on { box-shadow: 0 0 0 2px var(--popover), 0 0 0 4px currentColor; }
+.ip-swatch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ip-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 .45rem .45rem;
+  border-top: 1px solid var(--border); }
+.ip-heading { padding: .55rem .2rem .25rem; font-size: .72rem; font-weight: 600; color: var(--text-muted); }
+.ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; }
+.ip-btn { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0; border: 0;
+  border-radius: 5px; background: none; color: var(--text); }
+.ip-btn:hover, .ip-btn.on { background: var(--hover-tint); }
+.ip-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ip-emoji { font-size: 1.4rem; line-height: 1; }
+.ip-glyph { font-size: 22px; }
+.ip-status { padding: 2rem .5rem; text-align: center; font-size: .84rem; color: var(--text-muted); }
+.ip-end { height: 1px; }
 
 /* =========================================================================
    Modals

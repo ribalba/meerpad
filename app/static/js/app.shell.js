@@ -297,7 +297,10 @@ App.shell = (() => {
         && !(window.getSelection() || { isCollapsed: true }).isCollapsed;
       // e.code as well: on a Mac, Option+N types "˜", and on many European
       // layouts the backslash needs AltGr.
-      if ((key === "s" || key === "k" || key === "p") && !e.altKey && !e.shiftKey) {
+      if (key === "s" && !e.altKey && !e.shiftKey) {
+        e.preventDefault(); // not the browser's "Save page as"
+        saveNow();
+      } else if ((key === "k" || key === "p") && !e.altKey && !e.shiftKey) {
         if (App.search && !inEditorSelection) { e.preventDefault(); App.search.open(); }
       } else if (key === "\\" || e.code === "Backslash") {
         e.preventDefault();
@@ -318,6 +321,24 @@ App.shell = (() => {
       }
     });
     narrowQuery.addEventListener("change", () => closeDrawer());
+  }
+
+  /* Ctrl/Cmd+S. Every change saves and syncs on its own; this does it now:
+     the text still waiting for its debounce goes to the store, the queue to
+     the server, and a toast says how that went. */
+  async function saveNow() {
+    if (App.store.isReadOnly()) return;
+    if (App.page && App.page.flush) App.page.flush();
+    const r = await App.sync.flush();
+    if (r && r.ok === false) {
+      App.toast(navigator.onLine
+        ? "Could not reach the server. Your changes are kept and sync later."
+        : "You are offline. Your changes sync when you are back online.", { kind: "warning" });
+    } else if (r && r.parked) {
+      App.toast(`${r.parked} ${r.parked === 1 ? "change" : "changes"} could not sync. Click the status to see why.`, { kind: "warning" });
+    } else {
+      App.toast("Saved", { kind: "ok", duration: 1500 });
+    }
   }
 
   /* Plain clicks on links to pages open them in place; modified clicks (new
@@ -361,11 +382,11 @@ App.shell = (() => {
 
   const absoluteUrl = (path) => `${location.origin}${path}`;
 
-  /* A page's icon for lists (sidebar, breadcrumbs, search, trash): its emoji,
-     its image, or a page or database glyph. */
+  /* A page's icon for lists (sidebar, breadcrumbs, search, trash): its emoji
+     or Tabler icon, its image, or a page or database glyph. */
   function pageIcon(page, { size = 16, fallback = true } = {}) {
     const ref = page && page.icon ? App.files.ref(page.icon) : null;
-    if (ref && ref.kind === "emoji") return App.el("span", { class: "pi pi-emoji", text: ref.text });
+    if (App.files.isGlyph(ref)) return App.glyph(ref, "pi pi-emoji");
     if (ref && ref.kind === "url") return App.el("img", { class: "pi pi-img", src: ref.url, alt: "", loading: "lazy", draggable: "false" });
     if (!fallback) return null;
     return App.el("span", { class: "pi pi-svg", html: App.icon(page && page.kind === "database" ? "database" : "page", size) });
@@ -402,7 +423,7 @@ App.shell = (() => {
     const pageItem = (p) => ({
       label: App.ui.titleOf(p),
       description: App.ui.pathOf(p),
-      ...(p.icon && App.files.ref(p.icon).kind === "emoji" ? { emoji: p.icon } : { icon: p.kind === "database" ? "database" : "page" }),
+      ...(App.files.isGlyph(p.icon) ? { emoji: p.icon } : { icon: p.kind === "database" ? "database" : "page" }),
       disabled: p.id === page.parent_id,
       onSelect: () => move(p),
     });
@@ -415,7 +436,7 @@ App.shell = (() => {
         items.push({ heading: "Workspaces" });
         for (const { w, root } of roots) {
           items.push({
-            label: w.name, description: "Top level", ...(w.icon ? { emoji: w.icon } : { icon: "home" }),
+            label: w.name, description: "Top level", ...(App.files.isGlyph(w.icon) ? { emoji: w.icon } : { icon: "home" }),
             disabled: page.parent_id === root.id, onSelect: () => move(root),
           });
         }

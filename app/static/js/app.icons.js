@@ -98,3 +98,72 @@ App.icon = (name, size = 16) => {
   const body = App.ICONS[name] || App.ICONS.page;
   return `<svg class="icon icon-${name}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 };
+
+/* Page icons from Tabler Icons (MIT, app/static/vendor/tabler, built by
+   tools/build_icons.py): "icon:<name>[:<colour>]" refs, drawn the way the
+   published sites draw them (app/render.py). The data is a megabyte, so it
+   loads the first time an icon is drawn; until it arrives the glyph is an
+   empty box of the right size, filled in place. */
+App.tabler = (() => {
+  const SRC = "/static/vendor/tabler/icons.json";
+  const RETRY_MS = 30000;
+  let icons = null;
+  let loading = null;
+  let failedAt = 0;
+  const waiting = new Set();
+
+  // The data is Tabler's own markup, never anything a user typed.
+  const svg = (inner) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+  const has = (name) => Boolean(icons && Object.hasOwn(icons, name));
+
+  function fill(span) {
+    const name = span.dataset.icon;
+    span.innerHTML = has(name) ? svg(icons[name]) : "";
+  }
+
+  function load() {
+    if (icons) return Promise.resolve(icons);
+    if (!loading) {
+      loading = fetch(SRC)
+        .then((r) => { if (!r.ok) throw new Error(`Icons did not load (${r.status})`); return r.json(); })
+        .then((data) => {
+          icons = data.icons || {};
+          waiting.forEach(fill);
+          waiting.clear();
+          return icons;
+        })
+        .catch((e) => {
+          // Offline before the data was ever cached: the icons stay empty
+          // boxes, and the next draw after a pause tries again.
+          loading = null;
+          failedAt = Date.now();
+          waiting.clear();
+          throw e;
+        });
+    }
+    return loading;
+  }
+
+  /* An element for `ref` (App.files.ref's, kind "icon"), with class `cls`. */
+  function el(ref, cls = "") {
+    const span = App.el("span", { class: ["ti", cls, ref.color && `c-${ref.color}`].filter(Boolean).join(" "), "aria-hidden": "true" });
+    if (!ref.name) return span;
+    span.dataset.icon = ref.name;
+    if (icons) fill(span);
+    else if (loading || Date.now() - failedAt > RETRY_MS) { waiting.add(span); load().catch(() => {}); }
+    return span;
+  }
+
+  return { load, el, svg, has };
+})();
+
+/* A page icon that is a glyph, an emoji or a Tabler icon, as an element with
+   class `cls`; null for anything else (an image, or no icon). `ref` is the
+   stored string or App.files.ref's result. */
+App.glyph = (ref, cls = "") => {
+  const r = typeof ref === "string" ? App.files.ref(ref) : ref;
+  if (!r) return null;
+  if (r.kind === "emoji") return App.el("span", { class: cls || null, text: r.text });
+  if (r.kind === "icon") return App.tabler.el(r, cls);
+  return null;
+};

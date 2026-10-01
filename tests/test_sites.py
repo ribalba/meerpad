@@ -333,6 +333,27 @@ def test_sitemap_robots_favicon(client):
     assert icon.headers["content-type"].startswith("image/svg+xml") and "🐔" in icon.text
 
 
+def test_tabler_icon_favicon_and_pages(client):
+    ids = farm(client)
+    push(client, mutation("page", ids["farm"], {"icon": "icon:tractor:green"}))
+    icon = get(client, "/favicon.svg")
+    assert icon.status_code == 200 and icon.headers["content-type"].startswith("image/svg+xml")
+    assert icon.text.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" color="#448361" '
+                                'fill="none" stroke="currentColor"')
+    assert "<path " in icon.text and "<text" not in icon.text
+    html = get(client, "/").text
+    assert '<span class="page-icon icon-glyph c-green" aria-hidden="true"><svg ' in html
+    assert '<span class="brand-icon icon-glyph c-green" aria-hidden="true"><svg ' in html
+    # No colour is the text colour; a name Tabler does not have is the letter.
+    push(client, mutation("page", ids["farm"], {"icon": "icon:tractor"}))
+    assert 'color="#37352f"' in get(client, "/favicon.svg").text
+    push(client, mutation("page", ids["farm"], {"icon": "icon:no-such-icon:green"}))
+    letter = get(client, "/favicon.svg").text
+    assert ">F</text></svg>" in letter and "<path" not in letter
+    html = get(client, "/").text
+    assert 'class="page-icon icon-glyph' not in html and 'class="brand-icon icon-glyph' not in html
+
+
 def test_database_rows_are_pages(client):
     ids = farm(client)
     schema = {

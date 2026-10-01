@@ -170,7 +170,7 @@ App.sidebar = (() => {
     return [toolbar(), tree, shortcutBox()];
   }
 
-  /* The top row: brand, then sync, theme and settings, then the button that
+  /* The top row: brand, then sync, search and settings, then the button that
      folds the sidebar away. */
   function toolbar() {
     const brand = mode === "owner"
@@ -180,7 +180,14 @@ App.sidebar = (() => {
     // tools right-aligned under it.
     const bar = App.el("div", { class: "sidebar-toolbar" }, brand);
     if (mode === "owner" || !readOnly) bar.append(syncIconButton());
-    const tools = App.el("div", { class: "sidebar-tools" }, themeButton());
+    const tools = App.el("div", { class: "sidebar-tools" }, App.el("button", {
+      class: "icon-btn", type: "button", title: `Search (${key("K")})`, "aria-label": "Search",
+      html: App.icon("search", 17),
+      // Keeps the focus in a search bar that is showing, so the click hides
+      // it rather than the bar hiding itself on blur and this showing it again.
+      onmousedown: (e) => e.preventDefault(),
+      onclick: () => App.search && App.search.toggle(),
+    }));
     if (mode === "owner") {
       tools.append(App.el("button", {
         class: "icon-btn", type: "button", title: "Settings", "aria-label": "Settings",
@@ -237,22 +244,6 @@ App.sidebar = (() => {
     return syncBtn;
   }
 
-  const THEME_ICON = { system: "monitor", light: "sun", dark: "moon" };
-  const THEME_LABEL = { system: "Theme: follows the system", light: "Theme: light", dark: "Theme: dark" };
-  function themeButton() {
-    const mode = App.theme ? App.theme.mode() : "system";
-    const btn = App.el("button", {
-      class: "icon-btn", type: "button", title: `${THEME_LABEL[mode]} (click to change)`, "aria-label": "Theme",
-      html: App.icon(THEME_ICON[mode] || "monitor", 17),
-    });
-    btn.addEventListener("click", () => {
-      const next = App.theme.cycle();
-      btn.innerHTML = App.icon(THEME_ICON[next] || "monitor", 17);
-      btn.title = `${THEME_LABEL[next]} (click to change)`;
-    });
-    return btn;
-  }
-
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
   const key = (k) => `${isMac ? "⌘" : "Ctrl+"}${k}`;
 
@@ -288,8 +279,8 @@ App.sidebar = (() => {
     for (const w of App.store.workspaces()) {
       const icon = App.store.workspaceIcon(w);
       const ref = icon ? App.files.ref(icon) : null;
-      const iconEl = ref && ref.kind === "emoji"
-        ? App.el("span", { class: "nav-icon nav-emoji", text: ref.text })
+      const iconEl = App.files.isGlyph(ref)
+        ? App.el("span", { class: "nav-icon nav-emoji" }, App.glyph(ref))
         : ref && ref.kind === "url"
           ? App.el("span", { class: "nav-icon nav-img" }, App.el("img", { src: ref.url, alt: "", referrerpolicy: "no-referrer" }))
           : App.el("span", { class: "nav-icon" }, App.el("span", { class: "ws-dot", style: `background: ${dotColor(w.name)}` }));
@@ -305,7 +296,8 @@ App.sidebar = (() => {
      heading with a click (remembered), the first rows shown and "N more" for
      the rest, the version underneath. */
   const SHORTCUTS = [
-    [key("S"), "Search"],
+    [key("K"), "Search"],
+    [key("S"), "Save now"],
     ["↑ ↓", "Move in the page list"],
     ["Enter", "Open the page"],
     ["Esc", "Back to the page list"],
@@ -372,7 +364,7 @@ App.sidebar = (() => {
     if (icon) {
       const ref = App.files.ref(icon);
       if (ref.kind === "url") return App.el("span", { class: "ws-icon" }, App.el("img", { src: ref.url, alt: "" }));
-      return App.el("span", { class: "ws-icon", text: icon });
+      return App.el("span", { class: "ws-icon" }, App.glyph(ref) || icon);
     }
     const letter = ((ws && ws.name) || "?").trim().charAt(0).toUpperCase() || "?";
     return App.el("span", { class: "ws-icon letter", text: letter });

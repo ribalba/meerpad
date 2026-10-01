@@ -37,7 +37,14 @@ block     { id, page_id, parent_id, type, text, props, position, deleted,
             created_at, updated_at, rev }
 ```
 
-- `page.icon`: an emoji (`"🐔"`), `"file:<file_id>"`, or an http(s) URL.
+- `page.icon`: an emoji (`"🐔"`), `"file:<file_id>"`, an http(s) URL, or a
+  Tabler icon: `"icon:<name>"` or `"icon:<name>:<colour>"` (`"icon:tractor:green"`).
+  `<name>` is lowercase letters and digits in dash-separated words, a key of
+  `app/static/vendor/tabler/icons.json` (Tabler Icons 3.48.0, MIT, built by
+  `tools/build_icons.py`). `<colour>` is one of `gray`, `brown`, `orange`,
+  `yellow`, `green`, `blue`, `purple`, `pink`, `red`; without one (or with
+  any other word) the icon is drawn in the text colour. A name the data does
+  not have (Tabler renames icons now and then) draws nothing.
 - `workspace.icon` (at most 200 characters) and its root page's `icon` are
   one icon to the reader: the owner's client writes both whenever either
   changes (`app.store.js`), and shows the root page's when the workspace has
@@ -63,7 +70,7 @@ edits a block.
 | `to_do` | inline md | `checked: bool` |
 | `toggle` | inline md | content is child blocks; open or closed is local UI state |
 | `quote` | inline md | `color?` |
-| `callout` | inline md | `icon: emoji` (default 💡), `color?` |
+| `callout` | inline md | `icon`: anything `page.icon` can be (§1), default 💡; `color?`. In Markdown an emoji or Tabler icon starts the `<aside>`'s text (`icon:tractor:green Text`) |
 | `code` | raw source | `language: string` (`"plain"`, `"python"`, `"mermaid"`, …) |
 | `divider` | "" | |
 | `image` | caption | `file_id?` or `url?`, `width?` (px), `name?` |

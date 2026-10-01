@@ -148,7 +148,7 @@ App.history = (() => {
     if (!r) return null;
     if (r.kind === "url") return App.el("img", { class: "hist-img-icon", src: r.url, alt: "", loading: "lazy", referrerpolicy: "no-referrer" });
     if (r.kind === "gradient") return App.el("span", { class: `hist-swatch gradient-${Math.abs(r.n) % 8}` });
-    return App.el("span", { class: cls, text: r.text });
+    return App.glyph(r, cls);
   }
 
   function coverThumb(ref) {

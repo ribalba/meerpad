@@ -227,14 +227,33 @@ App.files.kindFromUrl = (url) => {
   return "unknown";
 };
 
-/* A page icon or cover reference ("file:<id>", a URL, an emoji, "gradient:N")
-   to something displayable. */
+/* The colours a Tabler page icon can have (docs/DESIGN.md §1); none is the
+   text colour. */
+App.ICON_COLORS = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"];
+
+/* A page icon or cover reference ("file:<id>", a URL, an emoji, "gradient:N",
+   "icon:<name>[:<colour>]") to something displayable. A malformed icon name
+   is null, and draws nothing. */
 App.files.ref = (ref) => {
   if (!ref) return null;
   if (ref.startsWith("file:")) return { kind: "url", url: App.files.url(ref.slice(5)) };
   if (/^https?:\/\//i.test(ref)) return { kind: "url", url: ref };
   if (ref.startsWith("gradient:")) return { kind: "gradient", n: Number(ref.slice(9)) || 0 };
+  if (ref.startsWith("icon:")) {
+    const [, name, color] = ref.split(":");
+    return {
+      kind: "icon",
+      name: /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name || "") ? name : null,
+      color: App.ICON_COLORS.includes(color) ? color : "",
+    };
+  }
   return { kind: "emoji", text: ref };
+};
+
+/* An icon drawn as a glyph (an emoji or a Tabler icon), not an image. */
+App.files.isGlyph = (ref) => {
+  const r = typeof ref === "string" ? App.files.ref(ref) : ref;
+  return Boolean(r && (r.kind === "emoji" || r.kind === "icon"));
 };
 
 // --- toasts ----------------------------------------------------------------

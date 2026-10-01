@@ -64,6 +64,10 @@ App.mdblocks = (() => {
   // their variation selectors, skin tones, tag sequences and ZWJ joins, so a
   // family or a rainbow flag counts as one icon.
   const EMOJI = /^(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}[\uFE0E\uFE0F]?\p{Emoji_Modifier}?[\u{E0020}-\u{E007F}]*(?:\u200D\p{Extended_Pictographic}[\uFE0E\uFE0F]?\p{Emoji_Modifier}?)*)/u;
+  // A Tabler icon ("icon:tractor:green", docs/DESIGN.md §1) is written where
+  // the emoji goes, and is a word of its own. Either one leads a callout.
+  const ICON_REF = /^icon:[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z]+)?(?=\s|$)/;
+  const leadingIcon = (t) => ICON_REF.exec(t) || EMOJI.exec(t);
 
   // --- lines ---------------------------------------------------------------------
   const isBlank = (line) => /^[ \t]*$/.test(line);
@@ -652,8 +656,8 @@ App.mdblocks = (() => {
     return { node: node("toggle", text, {}, parseLines(dedentAll(rest))), next };
   }
 
-  /* <aside>: the first paragraph, minus a leading emoji (the icon), is the
-     callout's text; the blocks after it are its children. */
+  /* <aside>: the first paragraph, minus a leading emoji or Tabler icon (the
+     icon), is the callout's text; the blocks after it are its children. */
   function parseCallout(lines, i) {
     const { content, next } = htmlContainer(lines, i, "aside", ASIDE_OPEN);
     const nodes = parseLines(dedentAll(content));
@@ -662,7 +666,7 @@ App.mdblocks = (() => {
     let children = nodes;
     if (nodes[0] && nodes[0].type === "paragraph") {
       let t = nodes[0].text;
-      const m = EMOJI.exec(t);
+      const m = leadingIcon(t);
       if (m) {
         icon = m[0];
         t = t.slice(m[0].length).replace(/^[ \t]+/, "");
@@ -1285,7 +1289,7 @@ App.mdblocks = (() => {
     let children = blocks;
     if (blocks[0] && blocks[0].type === "paragraph") {
       let t = blocks[0].text;
-      const m = EMOJI.exec(t);
+      const m = leadingIcon(t);
       if (m) {
         icon = m[0];
         t = t.slice(m[0].length).replace(/^\s+/, "");

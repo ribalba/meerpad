@@ -26,7 +26,7 @@
 
    Bump VERSION whenever the precache list changes, to evict old caches. */
 
-const VERSION = "meerpad-v6";
+const VERSION = "meerpad-v7";
 
 // The local shell: small, so blocking install on it is fast and safe. Missing
 // entries (a module not deployed yet) are skipped rather than failing install.
@@ -38,12 +38,17 @@ const SHELL = [
   "/static/js/app.core.js",
   "/static/js/app.icons.js",
   "/static/js/app.ui.js",
+  "/static/js/app.iconpicker.js",
   "/static/js/app.db.js",
   "/static/js/app.sync.js",
   "/static/js/app.store.js",
   "/static/js/app.markdown.js",
   "/static/js/app.highlight.js",
   "/static/vendor/highlight/highlight.min.js",
+  // What Tabler page icons are drawn from, so they show offline too. The
+  // picker's own data (the emoji, the icons' search words) is cached the
+  // first time the picker opens.
+  "/static/vendor/tabler/icons.json",
   "/static/js/app.mdblocks.js",
   "/static/js/app.editor.js",
   "/static/js/app.editor.menus.js",

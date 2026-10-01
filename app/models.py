@@ -163,7 +163,7 @@ class Page(SyncedMixin, Base):
 
     kind: Mapped[str] = mapped_column(String(16), default="page", nullable=False)  # page | database
     title: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    icon: Mapped[str | None] = mapped_column(String(500))    # emoji, "file:<id>", or a URL
+    icon: Mapped[str | None] = mapped_column(String(500))    # emoji, "file:<id>", a URL, or "icon:<name>[:<colour>]"
     cover: Mapped[str | None] = mapped_column(String(500))   # "file:<id>", a URL, or "gradient:<n>"
     position: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     # Row values when the parent is a database: {property_id: value}.

@@ -26,12 +26,14 @@ Safety rules, because every string here comes from a user:
   numbers parsed here (a colour name, an image width), never copied verbatim.
 """
 
+import json
 import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
@@ -276,8 +278,45 @@ def truncate(text: str, limit: int) -> str:
     return cut + "…"
 
 
+# "icon:<name>[:<colour>]" icons (DESIGN §1): Tabler Icons (MIT), built by
+# tools/build_icons.py as {name: inner SVG markup}. The app draws them with the
+# same wrapper (app.icons.js), so keep the two alike.
+TABLER_ICONS = Path(__file__).resolve().parent / "static" / "vendor" / "tabler" / "icons.json"
+ICON_NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+ICON_SVG = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" '
+            'stroke-linecap="round" stroke-linejoin="round">{}</svg>')
+
+
+@lru_cache(maxsize=1)
+def tabler_icons() -> dict:
+    """Every Tabler icon by name. A megabyte, so read on first use; without
+    the file no icon draws, and pages still render."""
+    try:
+        icons = json.loads(TABLER_ICONS.read_text(encoding="utf-8")).get("icons")
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return icons if isinstance(icons, dict) else {}
+
+
+def tabler_icon(icon: str) -> tuple[str, str] | None:
+    """``(inner SVG, colour)`` for an ``icon:<name>[:<colour>]`` icon, or None
+    when it is malformed or Tabler has no such icon (names change between
+    versions). The colour is one of COLOR_NAMES, or "" for the text colour.
+    Parts after the colour are ignored, as app.core.js ``App.files.ref`` does."""
+    parts = icon.split(":")
+    if len(parts) < 2 or parts[0] != "icon" or not ICON_NAME_RE.fullmatch(parts[1]):
+        return None
+    inner = tabler_icons().get(parts[1])
+    if not isinstance(inner, str):
+        return None
+    colour = parts[2] if len(parts) > 2 and parts[2] in COLOR_NAMES else ""
+    return inner, colour
+
+
 def icon_html(icon: str | None, ctx: RenderContext, cls: str = "icon") -> Markup:
-    """A page or callout icon: an emoji, ``file:<id>``, or an http(s) image."""
+    """A page or callout icon: an emoji, ``file:<id>``, an http(s) image, or a
+    Tabler icon (``icon:<name>[:<colour>]``, an inline SVG). An icon that cannot
+    be shown is empty, so callers can fall back to a glyph of their own."""
     icon = (icon or "").strip()
     if not icon:
         return Markup("")
@@ -289,6 +328,15 @@ def icon_html(icon: str | None, ctx: RenderContext, cls: str = "icon") -> Markup
         if not url:
             return Markup("")
         return Markup(f'<img class="{cls} icon-img" src="{esc(url)}" alt="" referrerpolicy="no-referrer">')
+    if icon.startswith("icon:"):
+        # Only validated parts reach the markup: a name Tabler has (its markup
+        # is Tabler's, never the user's) and a colour from COLOR_NAMES.
+        found = tabler_icon(icon)
+        if not found:
+            return Markup("")
+        inner, colour = found
+        color_cls = f" c-{colour}" if colour else ""
+        return Markup(f'<span class="{cls} icon-glyph{color_cls}" aria-hidden="true">{ICON_SVG.format(inner)}</span>')
     if len(icon) > 16:  # an emoji is a few code points; anything longer is not an icon
         return Markup("")
     return Markup(f'<span class="{cls} icon-emoji" aria-hidden="true">{esc(icon)}</span>')

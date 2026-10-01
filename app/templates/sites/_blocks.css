@@ -77,6 +77,8 @@
 .page-body .callout:not([class*="bg-"]) { border: 1px solid var(--border-2); }
 .page-body .callout-icon { font-size: 1.3em; line-height: 1.3; flex: none; }
 .page-body img.callout-icon { width: 1.4em; height: 1.4em; }
+/* As tall as an emoji's 1.3 line, so it centres on the first line of text. */
+.page-body .callout-icon.icon-glyph { margin: .075em 0; }
 .page-body .callout-body { flex: 1; min-width: 0; }
 .page-body .callout-body > :first-child { margin-top: 0; }
 .page-body .callout-body > :last-child { margin-bottom: 0; }
