@@ -23,9 +23,9 @@ and inline Markdown in meerail's dialect · `/` for every block, `[[` to link a 
 handles · workspaces, each a page tree of its own · databases with table, board, list,
 gallery and Gantt views · offline first, synced across devices, merged field by field · share links to
 view or to edit · publish any page as a website, at `/v/<name>` or on your own domain · drag
-files in, PDFs preview inline · paste a link to an image or PDF and keep a copy · import from
-Notion, databases included · page history by editing session, with what each one changed ·
-a desktop app with sign-in by deep link · light + dark.
+files in, PDFs preview inline, HEIC photos stored as WebP · paste a link to an image or PDF
+and keep a copy · import from Notion, databases included · page history by editing session,
+with what each one changed · a desktop app with sign-in by deep link · light + dark.
 
 It is one server and a browser app, the way meerato is:
 
@@ -146,6 +146,11 @@ file block to download. Paste a link to an image or a PDF and meerpad offers to 
 into the page, so the page keeps it when the original disappears. The server does the
 fetching and refuses addresses on its own network (`app/fetcher.py`).
 
+A HEIC photo (what an iPhone takes) shows only in Safari, so the server stores it as a
+WebP, upright and with its colour profile and EXIF, whether it was dropped in, fetched or
+imported from Notion (`app/images.py`). A HEIC that got in before that has a **Convert to
+WebP** button on its block, which makes the WebP copy and turns the block into an image.
+
 ### Databases
 
 A database is a page whose rows are pages. Its properties are text, number, select,
@@ -203,7 +208,7 @@ make import SRC=~/Downloads/Export.zip WORKSPACE=Farm \
 
 which runs `tools/notion_import.py` against that server. What comes across: pages and
 subpages, databases (the CSV) with their rows as pages and their properties, images and
-attachments as files, `<aside>` blocks as callouts, Markdown tables as table blocks, and
+attachments as files (HEIC photos as WebP images), `<aside>` blocks as callouts, Markdown tables as table blocks, and
 links between exported pages, rewritten to the imported ones.
 
 ## Install

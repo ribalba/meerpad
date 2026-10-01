@@ -21,3 +21,7 @@ tzdata==2026.4              # IANA zones on hosts that ship none (containers)
 httpx==0.28.1               # app/fetcher.py downloads a pasted image/PDF URL
 jinja2==3.1.6               # published websites are rendered server-side
 pygments==2.21.0            # code blocks on published websites, highlighted server-side
+pillow==12.3.0              # app/images.py writes a HEIC photo as WebP
+pillow-heif==1.8.0          # reads HEIC; its wheels bundle libheif, so the
+                            # slim image needs no system packages. libheif
+                            # parses untrusted uploads: keep this current

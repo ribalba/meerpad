@@ -1,4 +1,5 @@
-"""Files: uploads (drag and drop, paste), downloads, and fetching a pasted URL.
+"""Files: uploads (drag and drop, paste), downloads, fetching a pasted URL, and
+turning a HEIC photo into a WebP one.
 
 Files are not part of offline sync: a block refers to one by id
 (``props.file_id``) and the browser fetches it on demand, which the service
@@ -18,7 +19,7 @@ from ..models import Page
 from ..schemas import FetchUrlRequest, FileOut, ProbeOut
 from ..security import CurrentUser, OptionalUser
 from ..services import get_owned_page, resolve_share
-from ..storage import create_file, file_out, file_response
+from ..storage import create_file, file_out, file_response, webp_copy
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 settings = get_settings()
@@ -93,6 +94,19 @@ def fetch(payload: FetchUrlRequest, db: DB, user: CurrentUser):
         raise
     except Exception as exc:  # noqa: BLE001 - a connection dropped mid-body
         raise HTTPException(status_code=422, detail=f"Download failed ({type(exc).__name__})")
+    db.commit()
+    return file_out(row)
+
+
+@router.post("/{file_id}/webp", response_model=FileOut)
+def convert_to_webp(file_id: str, db: DB, user: CurrentUser):
+    """A WebP copy of a HEIC file, for a block that holds one from before
+    uploads were converted (app/images.py). The block is then pointed at the
+    copy by the client, through sync, like any other edit."""
+    f = db.get(FileRow, file_id)
+    if f is None or f.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="File not found")
+    row = webp_copy(db, f)
     db.commit()
     return file_out(row)
 

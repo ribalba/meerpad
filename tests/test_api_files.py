@@ -1,12 +1,15 @@
-"""Files: upload, who may read them, the SSRF guard on fetch, and purging pages."""
+"""Files: upload, who may read them, the SSRF guard on fetch, purging pages, and
+HEIC photos stored as WebP."""
 
+import io
 import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
+from PIL import Image
 
-from tests.helpers import mutation, needs_db, pull_all, running_app, sign_in
+from tests.helpers import heic, mutation, needs_db, pull_all, running_app, sign_in
 
 PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
@@ -80,6 +83,78 @@ def test_upload_size_limit(client, monkeypatch):
     monkeypatch.setattr(storage.settings, "max_upload_bytes", 10)
     r = client.post("/api/files", files={"file": ("big.bin", b"x" * 11, "application/octet-stream")})
     assert r.status_code == 413
+
+
+
+@needs_db
+def test_heic_upload_is_stored_as_webp(client):
+    from app.config import get_settings
+
+    sign_in(client)
+    page, _ = make_page(client)
+    uploads = get_settings().upload_dir
+    before = {p for p in uploads.rglob("*") if p.is_file()}
+    r = client.post("/api/files", files={"file": ("IMG_0001.HEIC", heic(), "image/heic")}, data={"page_id": page})
+    assert r.status_code == 200, r.text
+    f = r.json()
+    assert f["filename"] == "IMG_0001.webp" and f["content_type"] == "image/webp"
+    got = client.get(f["url"])
+    assert got.headers["content-type"] == "image/webp" and len(got.content) == f["size"]
+    assert got.content[:4] == b"RIFF" and got.content[8:12] == b"WEBP"
+    # Only the WebP is kept, not the HEIC beside it.
+    assert len({p for p in uploads.rglob("*") if p.is_file()} - before) == 1
+
+    # Sniffed, not named: HEIC data called .jpg is converted too.
+    f = client.post("/api/files", files={"file": ("photo.jpg", heic(), "image/jpeg")}).json()
+    assert f["filename"] == "photo.webp" and f["content_type"] == "image/webp"
+
+
+@needs_db
+def test_a_heic_that_does_not_decode_is_kept_as_it_came(client):
+    sign_in(client)
+    broken = heic()[:60] + b"\x00" * 100
+    r = client.post("/api/files", files={"file": ("IMG_0002.heic", broken, "image/heic")})
+    assert r.status_code == 200, r.text
+    f = r.json()
+    assert f["filename"] == "IMG_0002.heic" and f["content_type"] == "image/heic"
+    assert client.get(f["url"]).content == broken
+
+
+@needs_db
+def test_convert_a_stored_heic_to_webp(client, monkeypatch):
+    from app import images
+    from app.database import SessionLocal
+    from app.models import File
+
+    sign_in(client)
+    page, _ = make_page(client)
+    # A HEIC stored before uploads were converted.
+    with monkeypatch.context() as m:
+        m.setattr(images, "is_heic", lambda head: False)
+        old = client.post("/api/files", files={"file": ("IMG_0003.HEIC", heic((40, 20), exif={0x0112: 6}), "image/heic")},
+                          data={"page_id": page}).json()
+    assert old["content_type"] == "image/heic"
+
+    r = client.post(f"/api/files/{old['id']}/webp")
+    assert r.status_code == 200, r.text
+    new = r.json()
+    assert new["id"] != old["id"] and new["filename"] == "IMG_0003.webp" and new["content_type"] == "image/webp"
+    with Image.open(io.BytesIO(client.get(new["url"]).content)) as im:
+        assert im.format == "WEBP" and im.size == (20, 40)
+    # The HEIC stays (undo and page history point at it); the copy is the page's too.
+    assert client.get(old["url"]).status_code == 200
+    with SessionLocal() as db:
+        assert db.get(File, new["id"]).page_id == page
+
+    png = client.post("/api/files", files={"file": ("hen.png", PNG, "image/png")}).json()
+    r = client.post(f"/api/files/{png['id']}/webp")
+    assert r.status_code == 422 and "HEIC" in r.json()["detail"]
+    assert client.post("/api/files/nope/webp").status_code == 404
+
+    client.cookies.clear()
+    assert client.post(f"/api/files/{old['id']}/webp").status_code == 401
+    sign_in(client, "stranger@example.com")
+    assert client.post(f"/api/files/{old['id']}/webp").status_code == 404
 
 
 @needs_db

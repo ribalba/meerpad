@@ -23,8 +23,8 @@ How the import runs:
    meerpad id up front, so a link can point at a page that is imported later.
 3. Walk the tree parents first. Each page is parsed with app/mdblocks.py, its
    links are rewritten (``/p/<id>`` for pages, ``/api/files/<id>/<name>`` for
-   attachments, which are uploaded through app/storage.py), and it is written
-   with its blocks.
+   attachments, which are uploaded through app/storage.py, a HEIC photo
+   becoming a WebP one on the way), and it is written with its blocks.
 
 It commits after every page (and every few hundred database rows), because
 every write to pages and blocks takes the global revision counter's row lock
@@ -80,8 +80,9 @@ SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 KV_LINE_RE = re.compile(r"^[^\s:][^:\n]{0,60}:\s")
 URL_IN_TEXT_RE = re.compile(r"(?:https?://|mailto:)(?:www\.)?([^\s/?#]+)\S*")
 
-# Browsers render these in an <img>; any other attachment (HEIC and TIFF
-# included, which Notion showed as images) becomes a file block to download.
+# Browsers render these in an <img>; any other attachment (TIFF included,
+# which Notion showed as an image) becomes a file block to download. HEIC is
+# stored as WebP (app/images.py), so it is an image by the time this is asked.
 WEB_IMAGE_EXTS = {"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "ico"}
 COLORS = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"]
 
@@ -986,17 +987,18 @@ class _Importer:
                 if info is None:
                     out.append(BlockNode("paragraph", link.text))
                 else:
-                    out.append(self._media_block(info, link.text, target))
+                    out.append(self._media_block(info, link.text))
             else:
                 self.warn(f"{self.ex.rel(page.md)}: link target {target!r} not in the export")
                 if link.text.strip():
                     out.append(BlockNode("paragraph", link.text))
         return out
 
-    def _media_block(self, info: dict, alt: str, path: Path) -> BlockNode:
+    def _media_block(self, info: dict, alt: str) -> BlockNode:
         # Notion writes the file name as the alt text when there is no caption.
         caption = "" if _looks_like_filename(alt) else alt
-        ext = path.suffix.lower().lstrip(".")
+        # The stored name, not the export's: a HEIC came in as a WebP.
+        ext = Path(info["name"]).suffix.lower().lstrip(".")
         if ext in WEB_IMAGE_EXTS:
             return BlockNode("image", caption, {"file_id": info["file_id"], "name": info["name"]})
         return BlockNode("file", caption, {
@@ -1013,7 +1015,7 @@ class _Importer:
         if kind == "file":
             info = self.upload(target, page.id, n.text)
             if info is not None:
-                return self._media_block(info, n.text, target)
+                return self._media_block(info, n.text)
         elif kind == "node":
             return BlockNode("paragraph", f"[{n.text or target.title}](/p/{target.id})")
         else:

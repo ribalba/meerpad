@@ -307,6 +307,51 @@
     caret.set(el._text, readText(el._text).length);
   };
 
+  // --- HEIC --------------------------------------------------------------------------------
+  /* A HEIC photo shows only in Safari. Uploads are stored as WebP by the
+     server (app/images.py); a block holding a HEIC from before that offers to
+     convert it: the server makes a WebP copy, and the block points at it as
+     an image, in one undo step. Not on a share link, which has no session to
+     make a file with. */
+  const isHeic = (p) => /^image\/hei[cf]/i.test(p.content_type || "") || /\.(heic|heif|hif)$/i.test(p.name || "");
+  const canConvert = (ed, p) => Boolean(p.file_id) && !ed.readOnly && !App.files.shareToken && isHeic(p);
+  const converting = new Set(); // file ids the server is converting
+
+  function convertButton(ed, el, b, cls) {
+    const bt = h("button", `${cls} convert-webp`, "Convert to WebP");
+    bt.type = "button";
+    bt.title = "Store this HEIC photo as WebP, which every browser shows";
+    bt.addEventListener("mousedown", (e) => e.stopPropagation());
+    bt.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); ed.convertToWebp(b.id, el); });
+    return bt;
+  }
+
+  P.convertToWebp = async function (id, el) {
+    const b = App.store.block(id);
+    const fileId = b && b.props && b.props.file_id;
+    if (!fileId || converting.has(fileId)) return;
+    if (!navigator.onLine) { App.toast("Converting needs a connection"); return; }
+    converting.add(fileId);
+    el.classList.add("is-converting");
+    const btns = [...el.querySelectorAll(".convert-webp")];
+    for (const bt of btns) { bt.disabled = true; bt.textContent = "Converting…"; }
+    try {
+      const res = await App.api.post(`/api/files/${encodeURIComponent(fileId)}/webp`, {}, { timeout: 180000 });
+      const cur = App.store.block(id);
+      // Deleted, or given another file while the server worked: leave it be.
+      if (!cur || !cur.props || cur.props.file_id !== fileId) return;
+      const props = { ...cur.props, file_id: res.id, name: res.filename, size: res.size, content_type: res.content_type };
+      delete props.url;
+      this.op("Convert to WebP", () => this.update(id, { type: "image", props }));
+    } catch (err) {
+      App.toast(err.message || "The conversion failed", { kind: "error" });
+    } finally {
+      converting.delete(fileId);
+      el.classList.remove("is-converting");
+      for (const bt of btns) { bt.disabled = false; bt.textContent = "Convert to WebP"; }
+    }
+  };
+
   // An empty image or file block: upload, link, or drop.
   function emptyMedia(ed, el, b, kind) {
     const box = h("div", "media-empty");
@@ -394,7 +439,14 @@
       img.src = src;
       img.addEventListener("error", () => frame.classList.add("is-broken"));
       img.addEventListener("click", () => lightbox(src, img.alt));
-      frame.append(img, h("div", "img-broken", "This image could not be loaded"));
+      const broken = h("div", "img-broken");
+      if (isHeic(p)) {
+        broken.append(h("span", null, "HEIC photos show only in Safari"));
+        if (canConvert(ed, p)) broken.append(convertButton(ed, el, b, "btn btn-small"));
+      } else {
+        broken.textContent = "This image could not be loaded";
+      }
+      frame.append(img, broken);
       if (!ed.readOnly) {
         for (const side of ["left", "right"]) {
           const handle = h("span", `img-handle img-handle-${side}`);
@@ -403,6 +455,7 @@
         }
         frame.append(mediaTools(ed, el, [
           captionTool(ed, el),
+          ...(canConvert(ed, p) ? [{ icon: "refresh", title: "Convert to WebP", onClick: () => ed.convertToWebp(b.id, el) }] : []),
           { icon: "external", title: "Open original", href: src },
         ]));
       }
@@ -479,6 +532,7 @@
         });
         acts.append(prev);
       }
+      if (canConvert(ed, p)) acts.append(convertButton(ed, el, b, "file-btn"));
       if (!ed.readOnly) {
         const cap = h("button", "file-btn");
         cap.type = "button";

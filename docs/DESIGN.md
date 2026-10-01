@@ -310,12 +310,20 @@ mutations.
 ### Files
 
 - `POST /api/files` (multipart `file`, `page_id?`) returns
-  `{id, filename, content_type, size, url}`.
+  `{id, filename, content_type, size, url}`. A HEIC photo (sniffed from its
+  bytes, not its name) is stored as WebP, so `filename` ends in `.webp` and
+  `content_type` is `image/webp` (`app/images.py`); one that does not decode
+  is kept as it came. The same goes for `fetch` and for Notion attachments.
 - `GET /api/files/{id}[/{name}][?share=<token>][&download=1]`
 - `GET /api/files/probe?url=` returns
   `{ok, url, kind: image|pdf|video|audio|file|html|unknown, content_type, filename, size, detail}`.
 - `POST /api/files/fetch {url, page_id?}` has the server download the URL
   (SSRF-guarded, `app/fetcher.py`) and returns the same shape as an upload.
+- `POST /api/files/{id}/webp` makes a WebP copy of one of your HEIC files
+  (one stored before uploads were converted), with the same page, and returns
+  the same shape as an upload. The client then points the block at the copy
+  and makes it an `image`; the HEIC stays, for undo and page history. 422 when
+  the file is not HEIC or does not decode.
 
 ### Share
 
@@ -420,7 +428,8 @@ folder.
 - A database is `Title <id>.csv` or `Title <id>_all.csv`, with its row pages
   in `Title/`. A row page starts with `Key: value` lines that match the CSV
   header.
-- Images and files are relative links and are uploaded as files.
+- Images and files are relative links and are uploaded as files. A HEIC
+  photo is stored as WebP, and so becomes an `image` block, not a `file`.
 - Links between exported pages become `/p/<new id>` links.
 - `<aside>` becomes a callout.
 - Markdown tables become `table` blocks.

@@ -12,9 +12,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 from sqlalchemy import select
 
-from tests.helpers import needs_db, pull_all, running_app, sign_in
+from tests.helpers import heic, needs_db, pull_all, running_app, sign_in
 
 pytestmark = needs_db
 
@@ -30,6 +31,7 @@ INLINE = "99999999999999999999999999999999"
 INLINE_DB = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 CHILD = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 HENS = "cccccccccccccccccccccccccccccccc"
+PHOTOS = "dddddddddddddddddddddddddddddddd"
 
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
@@ -221,6 +223,36 @@ def test_import_folder_builds_the_tree(client, tmp_path):
         assert [x.type for x in b] == ["paragraph", "database", "paragraph"]
         assert b[1].props == {"page_id": inline_db.id}
         assert b[2].text == "Ghost"
+
+
+
+def test_heic_attachments_become_webp_images(client, tmp_path):
+    from app.database import SessionLocal
+    from app.models import File
+    from app.notion_import import import_notion
+    from app.storage import path_for
+
+    user_id, ws_id, root = account(client)
+    export = tmp_path / "export"
+    write(export / f"Photos {PHOTOS}.md", "# Photos\n\n![IMG_0001.HEIC](Photos/IMG_0001.heic)\n\n"
+          "[IMG_0002.HEIC](Photos/IMG_0002.heic)\n\nSee [the second](Photos/IMG_0002.heic).")
+    write(export / "Photos" / "IMG_0001.heic", heic((40, 20), exif={0x0112: 6}))
+    write(export / "Photos" / "IMG_0002.heic", heic((30, 30)))
+    stats = import_notion(user_id, ws_id, root, export)
+    assert stats["files"] == 2 and stats["warnings"] == []
+
+    with SessionLocal() as db:
+        photos = pages_by_title(db, ws_id)["Photos"]
+        b = blocks_of(db, photos.id)
+        # Image blocks, where a HEIC used to become a file to download.
+        assert [x.type for x in b] == ["image", "image", "paragraph"]
+        assert [x.props["name"] for x in b[:2]] == ["IMG_0001.webp", "IMG_0002.webp"]
+        assert [x.text for x in b[:2]] == ["", ""]
+        first = db.get(File, b[0].props["file_id"])
+        assert first.content_type == "image/webp" and first.page_id == photos.id
+        with Image.open(path_for(first.stored_name)) as im:
+            assert im.format == "WEBP" and im.size == (20, 40)
+        assert b[2].text == f"See [the second](/api/files/{b[1].props['file_id']}/IMG_0002.webp)."
 
 
 def test_database_schema_and_rows(client, tmp_path):

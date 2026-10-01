@@ -75,3 +75,26 @@ def pull_all(client, path: str = "/api/sync/pull", cursor: int = 0) -> dict:
             out["cursor"] = cursor
             out["last"] = data
             return out
+
+
+def heic(size: tuple[int, int] = (40, 20), exif: dict | None = None, icc: bytes | None = None) -> bytes:
+    """A real HEIC, encoded by pillow-heif, so the conversion is tested
+    against libheif rather than a stand-in. ``exif`` maps tag to value
+    (0x0112 is the orientation, which pillow-heif stores as a rotation)."""
+    import io
+
+    from PIL import Image
+
+    import app.images  # noqa: F401 - registers the HEIF plugin
+
+    im = Image.new("RGB", size, (200, 30, 30))
+    kw = {}
+    if exif:
+        ex = Image.Exif()
+        ex.update(exif)
+        kw["exif"] = ex.tobytes()
+    if icc:
+        kw["icc_profile"] = icc
+    buf = io.BytesIO()
+    im.save(buf, format="HEIF", quality=80, **kw)
+    return buf.getvalue()

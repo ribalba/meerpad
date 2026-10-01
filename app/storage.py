@@ -1,10 +1,12 @@
 """Files on disk: where uploads live and how they are served.
 
 Stored under ``upload_dir/<first two chars>/<uuid>`` so no single directory
-grows unbounded. The original name only ever lives in the database.
+grows unbounded. The original name only ever lives in the database. A HEIC
+photo is stored as WebP instead (app/images.py).
 """
 
 import hashlib
+import logging
 import mimetypes
 import uuid
 from collections.abc import Iterable
@@ -15,10 +17,12 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session as DBSession
 
+from . import images
 from .config import get_settings
 from .models import File
 
 settings = get_settings()
+log = logging.getLogger(__name__)
 
 # Served inline (the browser shows them). Everything else downloads.
 INLINE_TYPES = ("image/", "video/", "audio/", "application/pdf", "text/plain")
@@ -79,16 +83,81 @@ def create_file(
 ) -> File:
     name = clean_filename(filename, content_type)
     stored_name, size, sha = store_chunks(chunks, max_bytes)
+    ctype = guess_type(name, content_type)
+    try:
+        webp = webp_of_heic(stored_name)
+    except Exception as exc:  # noqa: BLE001 - a HEIC that does not decode is kept as it came
+        log.warning("%s stays HEIC: %s", name, exc)
+        webp = None
+    if webp is not None:
+        path_for(stored_name).unlink(missing_ok=True)
+        stored_name, size, sha = webp
+        name, ctype = images.webp_name(name), "image/webp"
     row = File(
         id=str(uuid.uuid4()),
         owner_id=owner_id,
         page_id=page_id,
         filename=name,
         stored_name=stored_name,
-        content_type=guess_type(name, content_type),
+        content_type=ctype,
         size=size,
         sha256=sha,
         source_url=source_url,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def webp_of_heic(stored_name: str) -> tuple[str, int, str] | None:
+    """A WebP of a stored file that is HEIC, as a new stored file:
+    (stored_name, size, sha256). None when the file is not HEIC; raises
+    images.ConvertError when it is but does not decode."""
+    src = path_for(stored_name)
+    with open(src, "rb") as fh:
+        if not images.is_heic(fh.read(images.SNIFF_BYTES)):
+            return None
+    new_name = uuid.uuid4().hex
+    dest = path_for(new_name)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256()
+    try:
+        images.heic_to_webp(src, dest)
+        with open(dest, "rb") as fh:
+            while chunk := fh.read(1024 * 1024):
+                digest.update(chunk)
+        size = dest.stat().st_size
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+    return new_name, size, digest.hexdigest()
+
+
+def webp_copy(db: DBSession, f: File) -> File:
+    """A WebP of a stored HEIC file (one from before uploads were converted),
+    as a new file of the same owner and page. The HEIC stays: undo and the
+    page's history still point at it, and it goes with its page like any
+    other file of the page."""
+    if not path_for(f.stored_name).exists():
+        raise HTTPException(status_code=404, detail="File missing on disk")
+    try:
+        webp = webp_of_heic(f.stored_name)
+    except images.ConvertError as exc:
+        log.warning("file %s does not convert: %s", f.id, exc)
+        raise HTTPException(status_code=422, detail="This HEIC image could not be read, so it was not converted")
+    if webp is None:
+        raise HTTPException(status_code=422, detail="Only HEIC images can be converted to WebP")
+    stored_name, size, sha = webp
+    row = File(
+        id=str(uuid.uuid4()),
+        owner_id=f.owner_id,
+        page_id=f.page_id,
+        filename=images.webp_name(f.filename),
+        stored_name=stored_name,
+        content_type="image/webp",
+        size=size,
+        sha256=sha,
+        source_url=f.source_url,
     )
     db.add(row)
     db.flush()
