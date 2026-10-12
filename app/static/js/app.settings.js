@@ -374,25 +374,54 @@ App.settings = (() => {
       h("span", { html: App.icon("copy", 14) }), "Copy");
     const rotate = h("button", { class: "btn", type: "button" }, h("span", { html: App.icon("refresh", 14) }), "Rotate");
     const msg = h("div", { class: "field-error", hidden: true, role: "alert" });
-    const curlBox = h("pre", { class: "code-block" });
-    const cliBox = h("pre", { class: "code-block" });
+    // The token API (routers/token_api.py, docs/DESIGN.md §7), then the Notion import.
+    const API_EXAMPLES = [
+      ["list", "List your pages, in sidebar order"],
+      ["search", "Search every page"],
+      ["read", "Read a page as Markdown"],
+      ["create", "Create a page from Markdown"],
+      ["append", "Add Markdown at the end of a page"],
+    ];
+    const IMPORT_EXAMPLES = [
+      ["curl", "Upload a Notion export with curl"],
+      ["cli", "Or with the importer, from a checkout of meerpad"],
+    ];
+    const boxes = Object.fromEntries([...API_EXAMPLES, ...IMPORT_EXAMPLES].map(([key]) => [key, h("pre", { class: "code-block" })]));
 
     function examples(real) {
       const t = token ? (real || shown ? token : mask(token)) : "<API token>";
       const ws = App.store.workspaces()[0];
-      const curl = [
-        `curl -F "file=@Export.zip" \\`,
-        `     -F "workspace_id=${ws ? ws.id : "<workspace id>"}" \\`,
-        `     "${location.origin}/api/import/notion?token=${t}"`,
+      const o = location.origin;
+      const auth = `curl -H "Authorization: Bearer ${t}"`;
+      const pageId = (ws && ws.root_page_id) || "<page id>";
+      // JSON in single quotes for the shell, a ' in a name included.
+      const json = (obj) => `'${JSON.stringify(obj).replace(/'/g, "'\\''")}'`;
+      const post = (body, path) => [
+        `${auth} \\`,
+        `     -H "Content-Type: application/json" \\`,
+        `     -d ${json(body)} \\`,
+        `     "${o}${path}"`,
       ].join("\n");
-      const cli = [
-        "python tools/notion_import.py \\",
-        `    --server ${location.origin} \\`,
-        `    --token ${t} \\`,
-        `    --workspace ${shellQuote(ws ? ws.name : "Work")} \\`,
-        "    <export folder or zip>",
-      ].join("\n");
-      return { curl, cli };
+      return {
+        list: `${auth} \\\n     "${o}/api/pages"`,
+        search: `${auth} -G \\\n     --data-urlencode "q=eggs" \\\n     "${o}/api/search"`,
+        read: `${auth} \\\n     "${o}/api/pages/${pageId}/markdown"`,
+        create: post({ workspace: ws ? ws.id : "Work", markdown: "# Shopping\n\n- [ ] Eggs\n- [ ] Flour" }, "/api/pages"),
+        append: post({ markdown: "- [ ] Butter" }, `/api/pages/${pageId}/append`),
+        curl: [
+          `${auth} \\`,
+          `     -F "file=@Export.zip" \\`,
+          `     -F "workspace_id=${ws ? ws.id : "<workspace id>"}" \\`,
+          `     "${o}/api/import/notion"`,
+        ].join("\n"),
+        cli: [
+          "python tools/notion_import.py \\",
+          `    --server ${o} \\`,
+          `    --token ${t} \\`,
+          `    --workspace ${shellQuote(ws ? ws.name : "Work")} \\`,
+          "    <export folder or zip>",
+        ].join("\n"),
+      };
     }
 
     function render() {
@@ -401,8 +430,7 @@ App.settings = (() => {
       reveal.replaceChildren(h("span", { html: App.icon(shown ? "eye-off" : "eye", 14) }), shown ? "Hide" : "Reveal");
       [reveal, copy, rotate].forEach((b) => { b.disabled = !token; });
       const ex = examples(false);
-      curlBox.textContent = ex.curl;
-      cliBox.textContent = ex.cli;
+      for (const [key, box] of Object.entries(boxes)) box.textContent = ex[key];
     }
     reveal.addEventListener("click", () => { shown = !shown; render(); });
 
@@ -448,12 +476,16 @@ App.settings = (() => {
 
     const copyBtn = (which, label) => h("button", { class: "btn btn-small set-copy-example", type: "button",
       onclick: () => copyText(examples(true)[which], label) }, h("span", { html: App.icon("copy", 13) }), "Copy");
+    const example = ([key, label]) => h("div", { class: "set-example" },
+      h("div", { class: "set-example-head" }, h("span", { text: label }), copyBtn(key, "Command copied")),
+      boxes[key]);
 
     return h("div", { class: "set-section" },
       sectionHead("API token"),
       h("p", { class: "set-text" },
-        "The token lets scripts act as you, without signing in: the Notion import command line tool, and uploads to the import endpoint with ",
-        h("code", { class: "inline-code", text: "?token=" }), ". Treat it like a password."),
+        "The token lets scripts and AI agents act as you, without signing in. They can list, search, read and write your pages through the API, and import from Notion. Send it as an ",
+        h("code", { class: "inline-code", text: "Authorization: Bearer" }), " header, or as ",
+        h("code", { class: "inline-code", text: "?token=" }), " where a header is not possible. Treat it like a password."),
       h("div", { class: "field" },
         h("label", { class: "field-label", text: "Your token" }),
         h("div", { class: "set-token-row" }, field, reveal, copy),
@@ -464,13 +496,13 @@ App.settings = (() => {
             h("div", { class: "setting-title", text: "Replace the token" }),
             h("div", { class: "setting-desc", text: "If it leaked, or a script should no longer have access. The old token stops working at once." })),
           rotate)),
-      h("h4", { class: "section-title set-subtitle", text: "Examples" }),
-      h("div", { class: "set-example" },
-        h("div", { class: "set-example-head" }, h("span", { text: "Upload a Notion export with curl" }), copyBtn("curl", "Command copied")),
-        curlBox),
-      h("div", { class: "set-example" },
-        h("div", { class: "set-example-head" }, h("span", { text: "Or with the importer, from a checkout of meerpad" }), copyBtn("cli", "Command copied")),
-        cliBox),
+      h("h4", { class: "section-title set-subtitle", text: "The API" }),
+      h("p", { class: "set-text" },
+        "Pages come back as JSON with their Markdown, and Markdown sent in becomes blocks, in the dialect of Export Markdown. Changes reach your devices on their next sync and show in page history as made by API. Every route is described at ",
+        h("a", { href: "/docs", target: "_blank", rel: "noopener", text: `${location.host}/docs` }), "."),
+      ...API_EXAMPLES.map(example),
+      h("h4", { class: "section-title set-subtitle", text: "Importing from Notion" }),
+      ...IMPORT_EXAMPLES.map(example),
       h("p", { class: "field-help", text: "Copy puts the real token into the command, even while it is hidden here." }));
   }
 

@@ -8,7 +8,7 @@ which would shadow BaseModel.schema.
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # --- Auth ------------------------------------------------------------------
 
@@ -75,6 +75,40 @@ class SyncResult(BaseModel):
 
 class SyncPushResponse(BaseModel):
     results: list[SyncResult]
+
+
+# --- Token API (routers/token_api.py) --------------------------------------
+
+# A page's Markdown, sent whole. Each block's text is capped by the sync
+# engine (MAX_TEXT). This keeps one request from holding a huge body.
+MAX_MARKDOWN = 2_000_000
+
+
+class _NoNul(BaseModel):
+    """PostgreSQL text cannot hold NUL. Refused here, it is a 422 and not a
+    failed flush."""
+
+    @field_validator("*")
+    @classmethod
+    def _no_nul(cls, v):
+        if isinstance(v, str) and "\x00" in v:
+            raise ValueError("must not contain NUL characters")
+        return v
+
+
+class ApiPageCreate(_NoNul):
+    # None takes the Markdown's leading "# Heading" as the title, if it has one.
+    title: str | None = Field(default=None, max_length=10_000)
+    markdown: str = Field(default="", max_length=MAX_MARKDOWN)
+    # The page goes under parent_id, or else at the top of a workspace (its id
+    # or its name).
+    parent_id: str | None = Field(default=None, max_length=36)
+    workspace: str | None = Field(default=None, max_length=200)
+    icon: str | None = Field(default=None, max_length=500)
+
+
+class ApiPageAppend(_NoNul):
+    markdown: str = Field(min_length=1, max_length=MAX_MARKDOWN)
 
 
 # --- Files -----------------------------------------------------------------

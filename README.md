@@ -25,7 +25,8 @@ gallery and Gantt views · offline first, synced across devices, merged field by
 view or to edit · publish any page as a website, at `/v/<name>` or on your own domain · drag
 files in, PDFs preview inline, HEIC photos stored as WebP · paste a link to an image or PDF
 and keep a copy · import from Notion, databases included · page history by editing session,
-with what each one changed · a desktop app with sign-in by deep link · light + dark.
+with what each one changed · an API for scripts and AI agents, with your token · a desktop app
+with sign-in by deep link · light + dark.
 
 It is one server and a browser app, the way meerato is:
 
@@ -210,6 +211,36 @@ which runs `tools/notion_import.py` against that server. What comes across: page
 subpages, databases (the CSV) with their rows as pages and their properties, images and
 attachments as files (HEIC photos as WebP images), `<aside>` blocks as callouts, Markdown tables as table blocks, and
 links between exported pages, rewritten to the imported ones.
+
+### The API, for scripts and agents
+
+Settings, **API token** shows your token with ready-made commands. The token lets a script
+or an AI agent work with your pages without signing in. Send it as an
+`Authorization: Bearer <token>` header, or as `?token=` where a header is not possible.
+
+| Request | |
+| --- | --- |
+| `GET /api/workspaces` | Your workspaces and their root pages |
+| `GET /api/pages` | The page tree, flat and in sidebar order. `workspace` (an id or a name), `parent`, `depth` and `rows` narrow it down |
+| `GET /api/search?q=` | Pages that contain every word, in the title, the text, a table, a file name or a database row |
+| `GET /api/pages/{id}` | A page with its place in the tree, its subpages and its Markdown |
+| `GET /api/pages/{id}/markdown` | Only the Markdown |
+| `POST /api/pages` | A new page from `{title?, markdown, parent_id or workspace, icon?}`. Without a title, the Markdown's leading `# Heading` becomes the title |
+| `POST /api/pages/{id}/append` | `{markdown}` added at the end of the page |
+| `GET /api/files/{id}` | A file a page links to |
+
+```bash
+curl -H "Authorization: Bearer $MEERPAD_TOKEN" "https://meerpad.com/api/search?q=eggs"
+
+curl -H "Authorization: Bearer $MEERPAD_TOKEN" -H "Content-Type: application/json" \
+     -d '{"workspace": "Farm", "markdown": "# Shopping\n\n- [ ] Eggs"}' \
+     https://meerpad.com/api/pages
+```
+
+Writes go through the same sync engine as the app, so your devices pick them up on their
+next sync, and page history lists them as made by **API**. The Markdown is the dialect of
+**Export Markdown**. [docs/DESIGN.md](docs/DESIGN.md) §7 has the details, and `/docs` on
+any meerpad server describes every route.
 
 ## Install
 

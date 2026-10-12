@@ -21,6 +21,7 @@
 - **Publishing:** any page and its subpages can be published as a website at `meerpad.com/v/<name>` (the owner picks the name) or on a custom domain (one A record pointing at the server). Templates: minimal, docs (with a sidebar), blog and landing page. Sites serve a sitemap and robots.txt.
 - **Files:** drag files into a page. Paste a link to an image or a PDF and the server can download it into the page, so it stays when the original disappears.
 - **Import from Notion:** upload a Notion "Markdown & CSV" export zip. Pages, subpages, databases with their rows and properties, callouts, tables, images and attachments are imported, and links between pages are kept. Large imports run in the background. There is also a command-line importer (`tools/notion_import.py`, `make import`).
+- **An API for scripts and AI agents.** With the account's API token (Settings, API token), a script can list, search, read and write pages over HTTP, as JSON and Markdown. Writes sync to every device like edits made in the app. `/docs` on the server describes every route.
 - **Desktop app:** an Electron window for Linux, macOS and Windows, signed in through a `meerpad://` link in the sign-in email.
 
 ## How it works

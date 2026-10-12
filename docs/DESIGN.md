@@ -295,7 +295,78 @@ mutations.
   return `{page_id, share_token, edit_token, share_url, edit_url, inherited_from}`.
 - `DELETE /api/pages/{id}` purges a page that is already in the trash,
   together with its subtree, and its history.
-- `GET /api/pages/{id}/markdown` returns the page as Markdown.
+- `GET /api/pages/{id}/markdown` returns the page as Markdown. It also
+  takes the API token (below).
+
+### Token API
+
+For scripts and agents (`app/routers/token_api.py`). Every route here takes
+the session cookie or the account's API token, sent as
+`Authorization: Bearer <token>` or as `?token=<token>` (the header is tried
+first). The token also works for `GET /api/pages/{id}/markdown`,
+`GET /api/files/{id}` and the Notion import (§10). Every other route stays
+cookie only. A page that is not yours, or that was emptied from the trash,
+is 404 everywhere.
+
+- `GET /api/workspaces` returns `[{id, name, icon, root_page_id}]` in
+  sidebar order.
+- A page **summary** is
+  `{id, title, icon, kind, workspace_id, workspace, parent_id, path, depth, is_row, created_at, edited_at, url}`.
+  - `path` is the titles of the pages above it, root first, joined by
+    ` / `. `depth` is how many pages are above it.
+  - `edited_at` is the later of the page's own `updated_at` and its newest
+    block's.
+  - `url` is `<BASE_URL>/p/<id>`.
+- `GET /api/pages[?workspace=&parent=&depth=&rows=]` returns summaries in
+  sidebar order, depth first with siblings by position.
+  - Without `parent` it lists each workspace's root page and everything
+    below it. `workspace` (an id, or a name matched case-insensitively)
+    picks one workspace.
+  - With `parent` it lists only the pages below that page. A page that is
+    not yours is 404, one in the trash 409.
+  - `depth` counts levels below where the listing starts. A database's
+    rows are only listed with `rows=true`, as the sidebar leaves them out.
+  - Pages in the trash, and everything below them, are left out.
+- `GET /api/search?q=[&workspace=&limit=20]` returns summaries, each with a
+  `snippet` of the first block that mentions a word.
+  - A page matches when it contains every word of `q` (up to 8),
+    case-insensitively and anywhere in a word. Its title counts, and so do
+    its blocks' text, table cells, file names, bookmark titles,
+    descriptions and addresses, and a database row's values (strings and
+    numbers). JSON keys, ids and flags never match.
+  - Pages whose title holds every word come first, then the most recently
+    edited. `limit` is at most 100.
+- `GET /api/pages/{id}` returns a summary plus `trashed`, `last_edited_by`,
+  `ancestors: [{id, title, kind}]` (root first),
+  `children: [{id, title, icon, kind}]` (a database's rows included) and
+  `markdown` (what `GET /api/pages/{id}/markdown` returns). A page in the
+  trash can still be read.
+- `POST /api/pages {title?, markdown?, parent_id?, workspace?, icon?}`
+  returns 201 and the page as `GET /api/pages/{id}` does.
+  - The page goes under `parent_id`, or else under `workspace`'s root
+    page, last among its siblings. Neither is 400.
+  - Without `title`, a leading `# Heading` in the Markdown becomes the
+    title and is not kept as a block.
+  - Under a database, the page is a row with no values.
+- `POST /api/pages/{id}/append {markdown}` adds the blocks after the
+  page's last top-level block and returns the page.
+- Markdown is read by `app/mdblocks.py`, the reader of the export and the
+  Notion import, so its dialect is what `markdown` returns. Images and file
+  links are then read as Markdown mode reads them (`app.mdblocks.js`). An
+  image line keeps a file id (`/api/files/<id>`) or an http(s) address,
+  without a title after it, and stays text otherwise. A line that is
+  nothing but a link to `/api/files/<id>` is a file block. Some details do
+  not survive a trip through the export (colours, page link cards,
+  bookmarks, captions of files), so sending an export back is not a copy.
+- Writes are sync mutations made on the server (§5). They get revisions,
+  clocks and page history like any other edit, with `API` as the editor.
+  A page created here has `API` as its `last_edited_by`. Appending leaves
+  it alone, as block edits in the app do.
+- A request commits all of its writes or none, and a refused one is 422
+  with the reason. Text with a NUL character is refused. One request
+  writes at most 2,000 blocks, nested at most 40 deep, from at most
+  2,000,000 characters of Markdown. It holds the server-wide write lock
+  (`app/database.py`) while it writes, about 3 ms a block.
 
 ### Page history (§11)
 
@@ -354,7 +425,7 @@ mutations.
 
 - `POST /api/import/notion` (multipart `file` = the export zip, `workspace_id`,
   `parent_page_id?`) returns the import. It accepts the session cookie or
-  `?token=<api token>`.
+  the API token, as for the token API.
   - `workspace_id` may be a workspace id or its name, matched
     case-insensitively.
   - Both fields may also come as query parameters (`workspace`, `parent`).
@@ -462,7 +533,7 @@ session left it, so its history shows what every session changed
   the trash deletes it with the page.
 
 ```
-session  { id, started_at, ended_at, editors: [email | "Someone with the edit link"],
+session  { id, started_at, ended_at, editors: [email | "Someone with the edit link" | "API"],
            baseline, current, active, stats: {added, removed, changed, moved, page} | null }
 snapshot { page: { title, icon, cover, kind, props, schema, options },
            blocks: [ { id, parent_id, type, text, props, position, depth } ] }
