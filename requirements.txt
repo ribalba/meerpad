@@ -1,5 +1,5 @@
 # meerpad-server dependencies.
-fastapi==0.141.1
+fastapi==0.142.2
 starlette==1.7.0            # pinned directly, not left to FastAPI's range (see meerail).
                             # >=1.3.1 is a floor, not a preference: below it the
                             # Range header on /static is an O(n^2) CPU sink
@@ -7,7 +7,7 @@ starlette==1.7.0            # pinned directly, not left to FastAPI's range (see 
                             # silently ignored for urlencoded bodies
                             # (CVE-2026-54283). Both are pre-auth.
 uvicorn[standard]==0.54.0
-sqlalchemy==2.1.1
+sqlalchemy==2.1.2
 pydantic==2.13.5
 pydantic-settings==2.15.0
 email-validator==2.3.0
