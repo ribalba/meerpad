@@ -17,7 +17,7 @@ from ..fetcher import FetchError, download, head, kind_of
 from ..models import File as FileRow
 from ..models import Page
 from ..schemas import FetchUrlRequest, FileOut, ProbeOut
-from ..security import CurrentUser, OptionalUser
+from ..security import CurrentUser, OptionalUserOrToken
 from ..services import get_owned_page, resolve_share
 from ..storage import create_file, file_out, file_response, webp_copy
 
@@ -125,7 +125,7 @@ def _readable(db: DBSession, f: FileRow, user, share: str | None) -> bool:
 def get_file(
     file_id: str,
     db: DB,
-    user: OptionalUser,
+    user: OptionalUserOrToken,
     filename: str | None = None,
     share: Annotated[str | None, Query(max_length=64)] = None,
     download: bool = False,

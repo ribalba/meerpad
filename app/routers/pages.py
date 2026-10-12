@@ -1,7 +1,8 @@
 """Page operations that need the server: share links, emptying the trash, export.
 
 Everything else about a page (creating, editing, moving, trashing, restoring)
-goes through offline sync.
+goes through offline sync. Scripts read and write pages through the token API
+in routers/token_api.py, which shares this prefix.
 """
 
 import secrets
@@ -16,7 +17,7 @@ from ..database import DB
 from ..history import forget as forget_history
 from ..models import Block, File, Page, Site
 from ..schemas import ShareOut, ShareUpdate
-from ..security import CurrentUser
+from ..security import CurrentUser, SessionOrTokenUser
 from ..services import PageTree, get_owned_page
 from ..storage import path_for
 
@@ -102,7 +103,7 @@ def purge_page(page_id: str, db: DB, user: CurrentUser) -> dict:
 
 
 @router.get("/{page_id}/markdown", response_class=PlainTextResponse)
-def export_markdown(page_id: str, db: DB, user: CurrentUser):
+def export_markdown(page_id: str, db: DB, user: SessionOrTokenUser):
     """The page as one Markdown document (Notion-flavoured: the same dialect the
     Notion importer reads)."""
     from ..mdblocks import page_to_markdown

@@ -21,7 +21,18 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from . import sites
 from .config import get_settings
 from .database import init_db
-from .routers import auth, demo, files, history, imports, pages, publish, share, sync
+from .routers import (
+    auth,
+    demo,
+    files,
+    history,
+    imports,
+    pages,
+    publish,
+    share,
+    sync,
+    token_api,
+)
 from .security import OptionalUser
 
 settings = get_settings()
@@ -70,6 +81,7 @@ app.include_router(publish.router)
 app.include_router(publish.preview_router)
 app.include_router(imports.router)
 app.include_router(demo.router)
+app.include_router(token_api.router)
 
 
 @app.get("/healthz")

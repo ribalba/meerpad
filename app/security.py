@@ -11,7 +11,7 @@ import uuid
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, Query, status
+from fastapi import Cookie, Depends, Header, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
@@ -247,13 +247,39 @@ def get_optional_user(db: DB, meerpad_session: SessionCookie = None) -> User | N
     return _user_from_session(db, meerpad_session)
 
 
+def _bearer(authorization: str | None) -> str | None:
+    """The token of an ``Authorization: Bearer <token>`` header."""
+    if authorization and authorization[:7].lower() == "bearer ":
+        return authorization[7:].strip() or None
+    return None
+
+
+TokenQuery = Annotated[str | None, Query()]
+AuthorizationHeader = Annotated[str | None, Header()]
+
+
+def get_optional_user_or_token(
+    db: DB,
+    meerpad_session: SessionCookie = None,
+    token: TokenQuery = None,
+    authorization: AuthorizationHeader = None,
+) -> User | None:
+    """Session cookie, or the account's API token as ``?token=`` or as
+    ``Authorization: Bearer <token>`` (scripts, the CLI, agents). The header
+    keeps the token out of URLs, which end up in proxy logs and shell history."""
+    return (_user_from_session(db, meerpad_session)
+            or get_user_by_api_token(db, _bearer(authorization))
+            or get_user_by_api_token(db, token))
+
+
 def get_user_session_or_token(
     db: DB,
     meerpad_session: SessionCookie = None,
-    token: Annotated[str | None, Query()] = None,
+    token: TokenQuery = None,
+    authorization: AuthorizationHeader = None,
 ) -> User:
-    """Session cookie, or the account's API token as ``?token=`` (scripts, the CLI)."""
-    user = _user_from_session(db, meerpad_session) or get_user_by_api_token(db, token)
+    """``get_optional_user_or_token``, or 401."""
+    user = get_optional_user_or_token(db, meerpad_session, token, authorization)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
@@ -269,3 +295,4 @@ def delete_session(db: DBSession, token: str | None) -> None:
 CurrentUser = Annotated[User, Depends(get_current_user)]
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 SessionOrTokenUser = Annotated[User, Depends(get_user_session_or_token)]
+OptionalUserOrToken = Annotated[User | None, Depends(get_optional_user_or_token)]
