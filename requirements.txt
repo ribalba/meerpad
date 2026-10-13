@@ -1,5 +1,5 @@
 # meerpad-server dependencies.
-fastapi==0.142.2
+fastapi==0.143.0
 starlette==1.7.0            # pinned directly, not left to FastAPI's range (see meerail).
                             # >=1.3.1 is a floor, not a preference: below it the
                             # Range header on /static is an O(n^2) CPU sink
@@ -7,15 +7,15 @@ starlette==1.7.0            # pinned directly, not left to FastAPI's range (see 
                             # silently ignored for urlencoded bodies
                             # (CVE-2026-54283). Both are pre-auth.
 uvicorn[standard]==0.54.0
-sqlalchemy==2.1.2
-pydantic==2.13.5
+sqlalchemy==2.1.4
+pydantic==2.14.0
 pydantic-settings==2.15.0
 email-validator==2.3.0
 python-multipart==0.0.32    # floor: below it a part header with no end
                             # (CVE-2026-42561) or a negative Content-Length
                             # (CVE-2026-53540) is parsed before any dependency runs
 psycopg[binary]==3.3.6
-tzdata==2026.4              # IANA zones on hosts that ship none (containers)
+tzdata==2026.5              # IANA zones on hosts that ship none (containers)
 
 # Notes-specific
 httpx==0.28.1               # app/fetcher.py downloads a pasted image/PDF URL
