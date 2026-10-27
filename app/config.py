@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # address its A record should name is shown in the publish dialog (purely
     # informational, the server never checks DNS).
     public_ip: str = ""
+    # Umami analytics for sites on a custom domain. Comma separated
+    # domain=website-id pairs, e.g. "example.com=0b1c...". The tracker loads from
+    # umami.<domain>, which has to be routed to the Umami service. Pages under /v/
+    # and previews are never tracked.
+    umami_sites: str = ""
 
     # --- Remote URL fetching ---------------------------------------------------
     # "Download this pasted image/PDF link into the page" fetches a URL server-side.
@@ -94,6 +99,12 @@ class Settings(BaseSettings):
     @property
     def default_workspace_names(self) -> list[str]:
         return [n.strip() for n in self.default_workspaces.split(",") if n.strip()]
+
+    @property
+    def umami_site_ids(self) -> dict[str, str]:
+        """Custom domain (lowercased) -> Umami website ID, from umami_sites."""
+        pairs = (p.split("=", 1) for p in self.umami_sites.split(",") if "=" in p)
+        return {d.strip().lower(): i.strip() for d, i in pairs if d.strip() and i.strip()}
 
 
 @lru_cache

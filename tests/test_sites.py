@@ -252,6 +252,22 @@ def test_custom_domain_and_www(client):
     assert '<link rel="canonical" href="http://sonnenhof.example/chickens">' in get(client, "/chickens").text
 
 
+def test_umami_only_on_a_listed_custom_domain(client, monkeypatch):
+    from app import sites
+
+    monkeypatch.setattr(sites.settings, "umami_sites", "other.example=nope, Sonnenhof.example = site-123")
+    ids = farm(client)
+    publish(client, ids["farm"], custom_domain="sonnenhof.example")
+    tag = 'src="https://umami.sonnenhof.example/script.js" data-website-id="site-123"'
+    for path in ("/", "/nothing"):  # a page and the 404
+        r = client.get(path, headers={"host": "www.sonnenhof.example"})
+        assert tag in r.text
+        assert "connect-src 'self' https://umami.sonnenhof.example;" in r.headers["content-security-policy"]
+    # Its /v/ address is not tracked.
+    r = get(client, "/")
+    assert "umami" not in r.text and "connect-src 'self';" in r.headers["content-security-policy"]
+
+
 def test_paths_follow_the_tree(client):
     ids = farm(client)
     page(client, ids["farm"], "Chickens", position=3)  # same title: gets -2

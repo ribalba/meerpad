@@ -30,6 +30,9 @@
 {% if assets.math %}
 <link rel="stylesheet" href="{{ assets.katex_css }}" crossorigin="anonymous">
 {% endif %}
+{% if assets.umami %}
+<script defer src="{{ assets.umami.src }}" data-website-id="{{ assets.umami.id }}" nonce="{{ assets.nonce }}"></script>
+{% endif %}
 <style>
 :root { --accent: {{ theme.accent }}; --accent-ink: {{ theme.accent_ink }}; --accent-dark: {{ theme.accent_dark }}; --accent-dark-ink: {{ theme.accent_dark_ink }}; }
 {% include "sites/_theme.css" %}

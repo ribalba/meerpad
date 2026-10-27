@@ -91,6 +91,9 @@ services:
       # a custom domain's A record should name (shown in the publish dialog,
       # never checked).
       PUBLIC_IP: ${PUBLIC_IP:-}
+      # Umami for sites on a custom domain, as domain=website-id pairs, comma
+      # separated. The tracker loads from umami.<domain>.
+      UMAMI_SITES: ${UMAMI_SITES:-}
 
       # "Download this pasted link into the page" refuses private and
       # loopback addresses unless this is true. Developer machines only.

@@ -291,6 +291,7 @@ is optional on a laptop; [.env.example](.env.example) explains each.
 | `LOGIN_TOKEN_TTL_MINUTES`, `SESSION_TTL_MINUTES` | 30, 43200 (30 days) | |
 | `LOGIN_CODE_MAX_ATTEMPTS`, `LOGIN_RATE_MAX`, `VERIFY_RATE_MAX`, `LOGIN_RATE_WINDOW_MINUTES` | 5, 5, 15, 15 | meerato's sign-in limits. |
 | `PUBLIC_IP` | empty | Shown in the publish dialog as the custom-domain A record. Never checked. |
+| `UMAMI_SITES` | empty | Umami for sites on a custom domain, as `domain=website-id` pairs, comma separated. The tracker loads from `umami.<domain>`. Pages under `/v/` and previews are never tracked. |
 | `FETCH_ALLOW_PRIVATE` | false | Let "fetch this pasted link" reach private addresses. Development only. |
 | `FETCH_TIMEOUT_SECONDS` | 20 | |
 | `HISTORY_IDLE_MINUTES`, `HISTORY_MAX_SESSION_MINUTES` | 10, 60 | A page's editing session ends after this long without an edit, or at this age. |

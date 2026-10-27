@@ -23,7 +23,8 @@ sits under a deleted page, is simply not in the map, so it 404s.
 
 Everything is rendered server-side with Jinja (``app/templates/sites``) from
 the HTML ``app/render.py`` produces. JavaScript is only ever added for mermaid
-diagrams and equations, and only on pages that have one.
+diagrams and equations, and only on pages that have one, plus the Umami tracker
+on a custom domain listed in ``UMAMI_SITES``.
 
 Security notes. Sites are served on the app's own origin under ``/v/``, next
 to the session cookie, so user content there must never run script. All content is
@@ -381,7 +382,19 @@ def serve(db: DBSession, request: Request, site: Site, path: str, prefix: str = 
     return render_page(db, request, smap, page_id, prefix, preview)
 
 
-def _headers(cache: str, nonce: str | None = None) -> dict:
+def _umami(site: Site, prefix: str, preview: bool) -> dict | None:
+    """The Umami tracker for a site served on its custom domain, if it has one."""
+    if prefix or preview or not site.custom_domain:
+        return None
+    domain = site.custom_domain.lower()
+    website_id = settings.umami_site_ids.get(domain)
+    if not website_id:
+        return None
+    origin = f"https://umami.{domain}"
+    return {"src": f"{origin}/script.js", "id": website_id, "origin": origin}
+
+
+def _headers(cache: str, nonce: str | None = None, umami: dict | None = None) -> dict:
     h = {
         "Cache-Control": cache,
         "X-Content-Type-Options": "nosniff",
@@ -395,7 +408,8 @@ def _headers(cache: str, nonce: str | None = None) -> dict:
             "font-src 'self' data: https://cdn.jsdelivr.net; "
             "img-src * data: blob:; media-src *; "
             f"frame-src 'self' {' '.join(EMBED_HOSTS)}; "
-            "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+            f"connect-src 'self'{' ' + umami['origin'] if umami else ''}; "
+            "object-src 'none'; base-uri 'none'; form-action 'none'"
         )
     return h
 
@@ -751,6 +765,7 @@ def render_page(db: DBSession, request: Request, smap: SiteMap, page_id: str, pr
         og_image = cover["url"] if cover["url"].startswith("http") else _origin(request, "") + cover["url"]
 
     nonce = secrets.token_urlsafe(16)
+    umami = _umami(site, prefix, preview)
     context = {
         **base,
         "page": {
@@ -798,22 +813,24 @@ def render_page(db: DBSession, request: Request, smap: SiteMap, page_id: str, pr
             "mermaid_url": MERMAID_URL,
             "katex_css": KATEX_CSS,
             "katex_js": KATEX_JS,
+            "umami": umami,
         },
     }
     html = _env.get_template(f"sites/{template}/page.html").render(**context)
-    return HTMLResponse(html, headers=_headers(PREVIEW_CACHE if preview else PAGE_CACHE, nonce))
+    return HTMLResponse(html, headers=_headers(PREVIEW_CACHE if preview else PAGE_CACHE, nonce, umami))
 
 
 def _not_found(db: DBSession, request: Request, smap: SiteMap, prefix: str, preview: bool) -> Response:
     ctx = SiteContext(db, smap, prefix)
     base = _base_context(request, smap, ctx, prefix, preview)
     nonce = secrets.token_urlsafe(16)
+    umami = _umami(smap.site, prefix, preview)
     html = _env.get_template("sites/_404.html").render(
         **base,
         meta={"title": f"Page not found · {base['site']['title']}", "og_title": "Page not found",
               "description": "", "canonical": canonical_origin(smap.site) + "/", "og_type": "website",
               "og_image": None, "noindex": True},
         page={"classes": ""},
-        assets={"nonce": nonce, "mermaid": False, "math": False},
+        assets={"nonce": nonce, "mermaid": False, "math": False, "umami": umami},
     )
-    return HTMLResponse(html, status_code=404, headers=_headers("no-cache", nonce))
+    return HTMLResponse(html, status_code=404, headers=_headers("no-cache", nonce, umami))

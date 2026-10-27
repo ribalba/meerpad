@@ -117,6 +117,9 @@ services:
       # dialog tells people to point a custom domain's A record at: this
       # server's public IPv4.
       PUBLIC_IP: ${PUBLIC_IP:-}
+      # Umami for sites on a custom domain, as domain=website-id pairs, comma
+      # separated. The tracker loads from umami.<domain>.
+      UMAMI_SITES: ${UMAMI_SITES:-}
 
       # Not a variable here on purpose: on a server, "download this pasted
       # link" must never be able to reach the host's own network.

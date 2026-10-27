@@ -37,6 +37,7 @@ In the resource's **Environment Variables** tab:
 | `SERVICE_PASSWORD_64_MEERPAD` | Leave it alone. The `SECRET_KEY` that signs login codes; changing it only invalidates sign-in links and codes still in flight. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `EMAIL_FROM` | Needed before anyone but you can sign in. Without `SMTP_HOST` the sign-in link and code are printed to the `web` container's log instead, which is how you sign in the first time (step 5). `EMAIL_FROM` defaults to `hello@meerpad.com`. |
 | `PUBLIC_IP` | This server's public IPv4. The publish dialog shows it as the address to point a custom domain's A record at. Purely informational: nothing checks DNS. |
+| `UMAMI_SITES` | Optional. Umami analytics for sites on a custom domain, as `domain=website-id` pairs, comma separated (`ribalba.de=d46e...`). The tracker loads from `umami.<domain>`, so add that domain to the Umami service. |
 | `DEFAULT_WORKSPACES` | Default `Work,Private`: the workspaces a new account starts with. |
 | `MAX_UPLOAD_BYTES`, `MAX_IMPORT_BYTES` | Default 50 MB per file, 4 GB per Notion export. See [Large Notion imports](#large-notion-imports) for the proxy's side of the second. |
 | `HISTORY_IDLE_MINUTES`, `HISTORY_MAX_SESSION_MINUTES`, `HISTORY_KEEP_SESSIONS` | Default 10, 60 and 200: a page's edits group into a session that ends after 10 quiet minutes or at an hour, and 200 finished sessions are kept per page. |
