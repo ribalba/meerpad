@@ -84,6 +84,22 @@ class SyncPushResponse(BaseModel):
 MAX_MARKDOWN = 2_000_000
 
 
+def _holds_nul(value) -> bool:
+    """Whether a NUL character is anywhere in ``value``, keys of objects too."""
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, str):
+            if "\x00" in v:
+                return True
+        elif isinstance(v, dict):
+            stack.extend(v)
+            stack.extend(v.values())
+        elif isinstance(v, list):
+            stack.extend(v)
+    return False
+
+
 class _NoNul(BaseModel):
     """PostgreSQL text cannot hold NUL. Refused here, it is a 422 and not a
     failed flush."""
@@ -91,7 +107,7 @@ class _NoNul(BaseModel):
     @field_validator("*")
     @classmethod
     def _no_nul(cls, v):
-        if isinstance(v, str) and "\x00" in v:
+        if _holds_nul(v):
             raise ValueError("must not contain NUL characters")
         return v
 
@@ -109,6 +125,31 @@ class ApiPageCreate(_NoNul):
 
 class ApiPageAppend(_NoNul):
     markdown: str = Field(min_length=1, max_length=MAX_MARKDOWN)
+
+
+class ApiPageReplace(_NoNul):
+    # Required, and empty empties the page.
+    markdown: str = Field(max_length=MAX_MARKDOWN)
+    # None takes the Markdown's leading "# Heading" as the title, if it has one.
+    title: str | None = Field(default=None, max_length=10_000)
+
+
+class ApiBlockInsert(_NoNul):
+    markdown: str = Field(min_length=1, max_length=MAX_MARKDOWN)
+    # At most one of these three. With none, the blocks go at the end of the page.
+    after: str | None = Field(default=None, min_length=1, max_length=36)
+    before: str | None = Field(default=None, min_length=1, max_length=36)
+    parent_id: str | None = Field(default=None, min_length=1, max_length=36)
+
+
+class ApiBlockEdit(_NoNul):
+    # Either markdown, which replaces the block and what is nested in it...
+    markdown: str | None = Field(default=None, max_length=MAX_MARKDOWN)
+    # ...or any of these, which leave what is nested in it alone.
+    text: str | None = None
+    type: str | None = Field(default=None, max_length=32)
+    # Merged over the block's props. A key set to null is removed.
+    props: dict | None = None
 
 
 # --- Files -----------------------------------------------------------------

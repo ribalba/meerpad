@@ -2,10 +2,10 @@
 
 The app reads and writes through offline sync, a protocol made for a client
 that mirrors everything. A script wants one request per step instead: list the
-workspaces and the page tree, search, read a page as Markdown, create a page
-from Markdown, append Markdown to a page. Every route here takes the session
-cookie or the account's API token, as ``?token=`` or as ``Authorization:
-Bearer <token>`` (app/security.py).
+workspaces and the page tree, search, read a page as Markdown or as blocks,
+create a page from Markdown, append to a page, replace its Markdown, edit one
+block. Every route here takes the session cookie or the account's API token,
+as ``?token=`` or as ``Authorization: Bearer <token>`` (app/security.py).
 
 Writes go through the sync engine (app/syncing.py) as mutations made on the
 server, so they get revisions, per-field clocks and page history like any edit
@@ -15,10 +15,12 @@ names them "API", and so does the "last edited by" of a page created here
 commit together or not at all.
 """
 
+import json
 import re
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from difflib import SequenceMatcher
 from typing import Annotated
 from urllib.parse import unquote
 
@@ -28,9 +30,27 @@ from sqlalchemy.orm import Session as DBSession
 
 from ..config import get_settings
 from ..database import DB, lock_writes
-from ..mdblocks import BlockNode, page_to_markdown, parse_markdown, whole_link
+from ..mdblocks import (
+    INLINE_TYPES,
+    LIST_TYPES,
+    BlockNode,
+    block_markdown,
+    block_tree,
+    blocks_to_markdown,
+    linked_titles,
+    page_to_markdown,
+    parse_markdown,
+    whole_link,
+)
 from ..models import Block, Page, User, Workspace, utcnow
-from ..schemas import ApiPageAppend, ApiPageCreate, SyncMutation
+from ..schemas import (
+    ApiBlockEdit,
+    ApiBlockInsert,
+    ApiPageAppend,
+    ApiPageCreate,
+    ApiPageReplace,
+    SyncMutation,
+)
 from ..security import SessionOrTokenUser
 from ..serialize import iso
 from ..services import get_owned_page
@@ -47,6 +67,21 @@ ACTOR = "API"
 MAX_BLOCKS = 2000
 MAX_DEPTH = 40
 MAX_SEARCH_WORDS = 8
+# A gap between two siblings too small to split (DESIGN §6).
+MIN_GAP = 1e-6
+
+# Blocks whose whole content is their text, so their type can change.
+TEXT_TYPES = (*INLINE_TYPES, "code", "equation")
+NO_TEXT_TYPES = ("divider", "table", "page", "database", "grid", "grid_cell")
+# Blocks whose Markdown can change in place, and which of their props it spells
+# out. The other props (a colour, a table's header flags) stay. Any other block
+# is its link, so a different one is a different block.
+IN_PLACE_TYPES = (*TEXT_TYPES, "table", "grid", "grid_cell")
+MARKDOWN_PROPS = {"to_do": ("checked",), "code": ("language",), "callout": ("icon",), "table": ("rows",),
+                  "grid": ("columns",)}
+# Blocks whose nested blocks are in their Markdown. What is under any other
+# block (a paragraph under a heading) is not, so no Markdown can change it.
+MARKDOWN_NESTS = (*LIST_TYPES, "paragraph", "toggle", "callout", "grid", "grid_cell")
 
 # Search reads the text a person wrote, never JSON keys, ids or flags. A
 # page's own words are its title and a database row's values (strings and
@@ -433,20 +468,29 @@ class _Writer:
         # it, and the sync engine's checks of a block's parents read them from
         # memory instead of selecting each one again.
         self.written: list = []
+        self.writes = 0
 
     def put(self, entity: str, row_id: str, data: dict) -> None:
-        apply(self.db, SyncMutation(op_id=row_id, entity=entity, action="upsert", id=row_id,
-                                    updated_at=self.at, data=data), self.scope)
+        self.writes += 1
+        if self.writes > MAX_BLOCKS + 1:  # the blocks, and the page they are on
+            raise Refused(f"This writes more than {MAX_BLOCKS} blocks. Make the change in parts")
+        status = apply(self.db, SyncMutation(op_id=row_id, entity=entity, action="upsert", id=row_id,
+                                             updated_at=self.at, data=data), self.scope)
+        if status == "stale":  # a device whose clock runs ahead wrote this row
+            raise Refused("This was just edited with a newer timestamp. Try again in a few minutes")
         self.written.extend(self.db.new)
         self.db.flush()
+
+    def block(self, page_id: str, node: BlockNode, parent_id: str | None, position: float) -> None:
+        block_id = str(uuid.uuid4())
+        self.put("block", block_id, {"page_id": page_id, "parent_id": parent_id, "type": node.type,
+                                     "text": node.text or "", "props": node.props or {}, "position": position})
+        self.blocks(page_id, node.children, block_id)
 
     def blocks(self, page_id: str, nodes: list[BlockNode], parent_id: str | None = None,
                start: float = 1.0) -> None:
         for i, n in enumerate(nodes):
-            block_id = str(uuid.uuid4())
-            self.put("block", block_id, {"page_id": page_id, "parent_id": parent_id, "type": n.type,
-                                         "text": n.text or "", "props": n.props or {}, "position": start + i})
-            self.blocks(page_id, n.children, block_id)
+            self.block(page_id, n, parent_id, start + i)
 
 
 @contextmanager
@@ -503,3 +547,332 @@ def append_to_page(page_id: str, payload: ApiPageAppend, db: DB, user: SessionOr
         start = _next_position(db, Block, Block.page_id == page.id, Block.parent_id.is_(None))
         _Writer(db, user).blocks(page.id, nodes, start=start)
     return page_out(db, user, page)
+
+
+# --- Editing what is there -----------------------------------------------------------
+
+# One sibling after an edit. (block, None) leaves a block as it is, (block, new)
+# makes it read as ``new`` and (None, new) creates a block.
+Slot = tuple[BlockNode | None, BlockNode | None]
+
+
+def _kept(nodes: list[BlockNode]) -> list[Slot]:
+    return [(n, None) for n in nodes]
+
+
+def _opcodes(a: list[str], b: list[str]) -> list[tuple]:
+    return SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+
+
+def _place(positions: list[float | None]) -> list[float]:
+    """Positions for siblings in their order. A block that has one keeps it and
+    a new block (None) goes between its neighbours. When a gap is too small to
+    split, the list is renumbered 1, 2, 3 (DESIGN §6)."""
+    out = list(positions)
+    i = 0
+    while i < len(out):
+        if out[i] is not None:
+            i += 1
+            continue
+        end = i
+        while end < len(out) and out[end] is None:
+            end += 1
+        n = end - i
+        low, high = out[i - 1] if i else None, out[end] if end < len(out) else None
+        step = 1.0
+        if low is not None and high is not None:
+            step = (high - low) / (n + 1)
+            if step < MIN_GAP:
+                return [float(k + 1) for k in range(len(out))]
+        elif low is None:
+            low = 0.0 if high is None else high - n - 1
+        out[i:end] = [low + step * (k + 1) for k in range(n)]
+        i = end
+    return out
+
+
+class _PageEdit(_Writer):
+    """A page's live blocks, and the changes one request makes to them.
+
+    Made inside ``_writes``: it takes the write lock first, so nothing changes
+    between reading the blocks and writing to them."""
+
+    def __init__(self, db: DBSession, user: User, page: Page):
+        super().__init__(db, user)
+        lock_writes(db)
+        rows = db.scalars(select(Block).where(Block.page_id == page.id)).all()
+        self.written.extend(rows)  # see _Writer
+        self.page_id = page.id
+        self.top = block_tree(rows)
+        self.titles = linked_titles(db, page.owner_id, self.top).get
+        self.parents: dict[str, BlockNode | None] = {}
+        self.nodes: dict[str, BlockNode] = {}
+        stack: list[tuple[BlockNode, BlockNode | None]] = [(n, None) for n in self.top]
+        while stack:
+            node, parent = stack.pop()
+            self.nodes[node.id], self.parents[node.id] = node, parent
+            stack.extend((c, node) for c in node.children)
+
+    def find(self, block_id: str) -> BlockNode:
+        if block_id not in self.nodes:
+            raise HTTPException(status_code=404, detail="Block not found")
+        return self.nodes[block_id]
+
+    def around(self, node: BlockNode) -> tuple[str | None, list[BlockNode], int]:
+        """The block's parent id, its siblings and its index among them."""
+        parent = self.parents[node.id]
+        siblings = parent.children if parent else self.top
+        # By identity, since two blocks with the same content are equal.
+        return parent.id if parent else None, siblings, next(i for i, s in enumerate(siblings) if s is node)
+
+    def remove(self, node: BlockNode) -> None:
+        self.put("block", node.id, {"deleted": True})
+        for child in node.children:
+            self.remove(child)
+
+    def reads(self, node: BlockNode) -> str:
+        return block_markdown(node, self.titles)
+
+    def align(self, old: list[BlockNode], new: list[BlockNode]) -> tuple[list[Slot], list[BlockNode]]:
+        """Pair stored blocks with the blocks read from Markdown, in order.
+
+        Blocks that read the same are the same block, whatever each is stored
+        as, like a page link card and a line holding that link. In a stretch
+        that differs, blocks of the same type, in order, are the same block
+        with changes. Returns the slots and the blocks left without a
+        counterpart."""
+        slots: list[Slot] = []
+        removed: list[BlockNode] = []
+        for tag, i1, i2, j1, j2 in _opcodes([self.reads(o) for o in old], [self.reads(n) for n in new]):
+            if tag == "equal":
+                slots += zip(old[i1:i2], new[j1:j2], strict=True)
+                continue
+            was, now = old[i1:i2], new[j1:j2]
+            for same, a1, a2, b1, b2 in _opcodes([o.type for o in was], [n.type for n in now]):
+                if same == "equal" and was[a1].type in IN_PLACE_TYPES:
+                    slots += zip(was[a1:a2], now[b1:b2], strict=True)
+                else:
+                    removed += was[a1:a2]
+                    slots += [(None, n) for n in now[b1:b2]]
+        return slots, removed
+
+    def replace(self, parent_id: str | None, old: list[BlockNode], new: list[BlockNode]) -> None:
+        """Make one list of siblings read as ``new``. A block Markdown does not
+        show (an empty paragraph) stays, or goes with the block before it."""
+        shown: list[BlockNode] = []
+        unseen: dict[str | None, list[BlockNode]] = {}
+        for o in old:
+            if o.type == "grid_cell" or o.children or self.reads(o).strip():
+                shown.append(o)
+            else:
+                unseen.setdefault(shown[-1].id if shown else None, []).append(o)
+        slots, removed = self.align(shown, new)
+        for gone in removed:
+            for o in (gone, *unseen.get(gone.id, ())):
+                self.remove(o)
+        merged = _kept(unseen.get(None, []))
+        for slot in slots:
+            merged.append(slot)
+            if slot[0]:
+                merged += _kept(unseen.get(slot[0].id, []))
+        self.arrange(parent_id, merged)
+
+    def arrange(self, parent_id: str | None, slots: list[Slot]) -> None:
+        positions = _place([old.position if old else None for old, _ in slots])
+        for (old, new), position in zip(slots, positions, strict=True):
+            if old is None:
+                self.block(self.page_id, new, parent_id, position)
+                continue
+            data = self.taken_from(old, new) if new else {}
+            if position != old.position:
+                data["position"] = position
+            if data:
+                self.put("block", old.id, data)
+            if new and old.type in MARKDOWN_NESTS:
+                self.replace(old.id, old.children, new.children)
+
+    def taken_from(self, old: BlockNode, new: BlockNode) -> dict:
+        """What a stored block has to change to read as ``new``."""
+        if self.reads(old) == self.reads(new):
+            return {}
+        data = {}
+        if new.text != old.text:
+            data["text"] = new.text
+        spelled = {k: new.props[k] for k in MARKDOWN_PROPS.get(old.type, ()) if k in new.props}
+        if {**old.props, **spelled} != old.props:
+            data["props"] = {**old.props, **spelled}
+        return data
+
+    def rewrite(self, node: BlockNode, new: list[BlockNode]) -> None:
+        """One block replaced by the blocks read from Markdown."""
+        if node.type == "grid_cell":
+            # Its Markdown is its content, and it stays a cell of its grid.
+            self.replace(node.id, node.children, new)
+            return
+        if not new:
+            raise HTTPException(status_code=422, detail="The Markdown holds no block. Delete the block instead")
+        parent_id, siblings, i = self.around(node)
+        slots, removed = self.align([node], new)
+        for gone in removed:
+            self.remove(gone)
+        self.arrange(parent_id, [*_kept(siblings[:i]), *slots, *_kept(siblings[i + 1:])])
+
+
+def blocks_out(db: DBSession, page: Page) -> list[dict]:
+    """A page's live blocks in document order, each once, with its nesting."""
+    top = block_tree(list(db.scalars(select(Block).where(Block.page_id == page.id))))
+    titles = linked_titles(db, page.owner_id, top).get
+    out: list[dict] = []
+
+    def visit(nodes: list[BlockNode], parent_id: str | None, depth: int) -> None:
+        for n in nodes:
+            out.append({"id": n.id, "parent_id": parent_id, "depth": depth, "type": n.type, "text": n.text,
+                        "props": n.props, "markdown": blocks_to_markdown([n], titles).rstrip("\n")})
+            visit(n.children, n.id, depth + 1)
+
+    visit(top, None, 0)
+    return out
+
+
+def _edited(db: DBSession, user: User, page: Page) -> dict:
+    """Every edit returns the page and its blocks, with any new ids."""
+    return {**page_out(db, user, page), "blocks": blocks_out(db, page)}
+
+
+def _title_to_write(page: Page, given: str | None, nodes: list[BlockNode]) -> str | None:
+    """The title a replacement sets, or None to leave it. As when creating a
+    page, a leading ``# Heading`` is the title unless one is given, and it is
+    not kept as a block."""
+    if given is not None:
+        title = given.strip()
+    elif nodes and nodes[0].type == "heading_1":
+        title = nodes.pop(0).text.strip()
+        if title == "Untitled" and not page.title:  # how the export writes no title
+            return None
+    else:
+        return None
+    return None if title == (page.title or "").strip() else title
+
+
+@router.get("/pages/{page_id}/blocks")
+def list_blocks(page_id: str, db: DB, user: SessionOrTokenUser) -> list[dict]:
+    return blocks_out(db, _owned_page(db, user, page_id))
+
+
+@router.put("/pages/{page_id}/markdown")
+def replace_markdown(page_id: str, payload: ApiPageReplace, db: DB, user: SessionOrTokenUser) -> dict:
+    """The page's content replaced by Markdown. Only what differs is written,
+    so what Markdown cannot say (colours, link cards, an inline database) stays
+    on every block the new Markdown still has."""
+    page = _live_page(db, user, page_id)
+    if page.kind == "database":
+        raise HTTPException(status_code=422, detail="A database's Markdown is its rows. Edit each row as a page")
+    nodes = _blocks_from(payload.markdown)
+    title = _title_to_write(page, payload.title, nodes)
+    with _writes(db):
+        edit = _PageEdit(db, user, page)
+        if title is not None:
+            edit.put("page", page.id, {"title": title})
+        # Compared as read, not as written. Sending back what was read must be
+        # no edit at all, also where Markdown drops something (nesting under a
+        # paragraph, a blank line inside one).
+        if _as_the_editor_reads(parse_markdown(blocks_to_markdown(edit.top, edit.titles))) != nodes:
+            edit.replace(None, edit.top, nodes)
+    return _edited(db, user, page)
+
+
+@router.post("/pages/{page_id}/blocks")
+def insert_blocks(page_id: str, payload: ApiBlockInsert, db: DB, user: SessionOrTokenUser) -> dict:
+    """Markdown added at one place in a page, after or before a block, as the
+    last blocks inside one, or at the end of the page."""
+    page = _live_page(db, user, page_id)
+    if sum(v is not None for v in (payload.after, payload.before, payload.parent_id)) > 1:
+        raise HTTPException(status_code=422, detail="Say one place: after, before or parent_id")
+    nodes = _blocks_from(payload.markdown)
+    with _writes(db):
+        edit = _PageEdit(db, user, page)
+        if payload.after or payload.before:
+            anchor = edit.find(payload.after or payload.before)
+            if anchor.type == "grid_cell":
+                raise HTTPException(status_code=422, detail="A grid holds only its cells. Add the blocks inside a cell")
+            parent_id, siblings, i = edit.around(anchor)
+            i += 1 if payload.after else 0
+        else:
+            parent = edit.find(payload.parent_id) if payload.parent_id else None
+            if parent is not None and parent.type == "grid":
+                raise HTTPException(status_code=422, detail="A grid holds only its cells. Add the blocks inside a cell")
+            parent_id, siblings = parent.id if parent else None, parent.children if parent else edit.top
+            i = len(siblings)
+        edit.arrange(parent_id, [*_kept(siblings[:i]), *((None, n) for n in nodes), *_kept(siblings[i:])])
+    return _edited(db, user, page)
+
+
+def _page_of_block(db: DBSession, user: User, block_id: str) -> Page:
+    block = db.get(Block, block_id) if "\x00" not in block_id else None
+    if block is None:
+        raise HTTPException(status_code=404, detail="Block not found")
+    return _live_page(db, user, block.page_id)
+
+
+def _is_table_rows(rows) -> bool:
+    return bool(rows) and isinstance(rows, list) and all(
+        isinstance(r, list) and all(isinstance(c, str) for c in r) for r in rows
+    )
+
+
+def _fields_to_write(node: BlockNode, payload: ApiBlockEdit) -> dict:
+    data: dict = {}
+    if payload.text is not None:
+        if node.type in NO_TEXT_TYPES:
+            raise HTTPException(status_code=422, detail=f"A {node.type} block has no text. Send markdown or props")
+        data["text"] = payload.text
+    if payload.type is not None and payload.type != node.type:
+        if node.type not in TEXT_TYPES or payload.type not in TEXT_TYPES:
+            raise HTTPException(status_code=422, detail="Only text blocks can change type. Send markdown instead")
+        data["type"] = payload.type
+    if payload.props is not None:
+        try:
+            # NaN and infinity are read from JSON but JSONB cannot hold them.
+            # The schema cannot refuse them, as its error echoes them and fails.
+            json.dumps(payload.props, allow_nan=False)
+        except (ValueError, RecursionError):
+            raise HTTPException(status_code=422, detail="props must be plain JSON with finite numbers") from None
+        data["props"] = {k: v for k, v in {**node.props, **payload.props}.items() if v is not None}
+        if node.type == "table" and not _is_table_rows(data["props"].get("rows")):
+            raise HTTPException(status_code=422, detail="A table's rows must be a list of lists of strings")
+    return data
+
+
+@router.patch("/blocks/{block_id}")
+def edit_block(block_id: str, payload: ApiBlockEdit, db: DB, user: SessionOrTokenUser) -> dict:
+    """One block changed, either its ``text``, ``type`` or ``props``, or all of
+    it (and what is nested in it) through ``markdown``."""
+    page = _page_of_block(db, user, block_id)
+    fields = (payload.text, payload.type, payload.props)
+    if payload.markdown is None and all(f is None for f in fields):
+        raise HTTPException(status_code=422, detail="Nothing to change")
+    if payload.markdown is not None and any(f is not None for f in fields):
+        raise HTTPException(status_code=422, detail="Send markdown, or text, type and props, not both")
+    nodes = None if payload.markdown is None else _blocks_from(payload.markdown)
+    with _writes(db):
+        edit = _PageEdit(db, user, page)
+        node = edit.find(block_id)
+        if nodes is not None:
+            edit.rewrite(node, nodes)
+        elif data := _fields_to_write(node, payload):
+            edit.put("block", node.id, data)
+    return _edited(db, user, page)
+
+
+@router.delete("/blocks/{block_id}")
+def delete_block(block_id: str, db: DB, user: SessionOrTokenUser) -> dict:
+    """A block and everything nested in it, deleted as the app deletes them."""
+    page = _page_of_block(db, user, block_id)
+    with _writes(db):
+        edit = _PageEdit(db, user, page)
+        node = edit.find(block_id)
+        if node.type == "grid_cell":
+            # Every cell after it would shift. The grid's Markdown can drop one.
+            raise HTTPException(status_code=422, detail="A cell goes with its grid. Edit the grid's markdown")
+        edit.remove(node)
+    return _edited(db, user, page)

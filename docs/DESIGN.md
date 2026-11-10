@@ -350,6 +350,56 @@ is 404 everywhere.
   - Under a database, the page is a row with no values.
 - `POST /api/pages/{id}/append {markdown}` adds the blocks after the
   page's last top-level block and returns the page.
+- `GET /api/pages/{id}/blocks` returns the page's live blocks, flat and in
+  document order, as `{id, parent_id, depth, type, text, props, markdown}`.
+  `markdown` is the block with what is nested in it. A page in the trash can
+  still be read.
+- The four edits below return the page as `GET /api/pages/{id}` does, plus
+  `blocks` as above.
+- `PUT /api/pages/{id}/markdown {markdown, title?}` makes the page read as
+  the Markdown. An empty `markdown` empties the page.
+  - The title works as in `POST /api/pages`, so a leading `# Heading` is the
+    new title unless `title` is given. Without either the title stays.
+  - The page's blocks are aligned with the Markdown's, one list of siblings
+    at a time, comparing how each block reads as Markdown. Blocks that read
+    the same are not written, so what Markdown cannot say stays on them
+    (colours, link cards, inline databases, captions). Sending back what
+    `markdown` returned writes nothing.
+  - In a stretch that differs, blocks of the same type, in order, are the
+    same block with changes. It keeps its id and the props Markdown does
+    not spell out (a colour, a table's header flags). Any other block is
+    deleted and a new one written. A media or link block is never changed
+    in place.
+  - Blocks Markdown does not show are left alone: an empty paragraph stays
+    unless the block before it goes, and what is nested under a heading,
+    quote or other block that does not write its children stays with it.
+    Markdown has no nesting under a paragraph, so a change to the page
+    brings blocks nested there up one level.
+  - A database is refused with 422, since its Markdown is its rows.
+  - Whatever was added to the page after the Markdown was read is deleted,
+    so read and replace in one go.
+- `POST /api/pages/{id}/blocks {markdown, after? | before? | parent_id?}`
+  adds the blocks next to the block `after` or `before` names, as the last
+  blocks inside `parent_id`, or with none of them at the end of the page.
+  Naming more than one is 422, a block not on this page 404.
+- `PATCH /api/blocks/{id}` changes one block, which keeps its id.
+  - `{text?, type?, props?}` leaves what is nested in it alone. `props` are
+    merged over the block's, and a key set to `null` is removed. So a table
+    takes `{"props": {"rows": [["a", "b"], ["1", "2"]]}}`, with `rows` a
+    list of lists of strings. `type` changes only between text blocks
+    (`paragraph`, headings, lists, `to_do`, `toggle`, `quote`, `callout`,
+    `code`, `equation`). A block without text refuses `text`.
+  - `{markdown}` replaces the block and what is nested in it, with the same
+    alignment as above, so it can become several blocks. Of a `grid_cell`
+    it replaces the content. Other blocks need at least one block in it.
+- `DELETE /api/blocks/{id}` deletes the block and everything nested in it,
+  softly as the app does. A `grid_cell` is refused, since every cell after
+  it would shift. The grid's `markdown` can leave one out.
+- Only a live block on a live page of yours can be edited. Otherwise it is
+  404, and 409 when the page is in the trash. Nothing but cells goes into a
+  grid and a cell stays in its grid, as in the editor (§2).
+- An edit that a device's write with a later timestamp beats is 422 and
+  writes nothing, instead of reporting a change that did not happen.
 - Markdown is read by `app/mdblocks.py`, the reader of the export and the
   Notion import, so its dialect is what `markdown` returns. Images and file
   links are then read as Markdown mode reads them (`app.mdblocks.js`). An
@@ -357,11 +407,12 @@ is 404 everywhere.
   without a title after it, and stays text otherwise. A line that is
   nothing but a link to `/api/files/<id>` is a file block. Some details do
   not survive a trip through the export (colours, page link cards,
-  bookmarks, captions of files), so sending an export back is not a copy.
+  bookmarks, captions of files), so sending an export to a new page is not
+  a copy. `PUT .../markdown` keeps them where the block is still there.
 - Writes are sync mutations made on the server (§5). They get revisions,
   clocks and page history like any other edit, with `API` as the editor.
-  A page created here has `API` as its `last_edited_by`. Appending leaves
-  it alone, as block edits in the app do.
+  A page created or retitled here has `API` as its `last_edited_by`.
+  Writing blocks leaves it alone, as block edits in the app do.
 - A request commits all of its writes or none, and a refused one is 422
   with the reason. Text with a NUL character is refused. One request
   writes at most 2,000 blocks, nested at most 40 deep, from at most

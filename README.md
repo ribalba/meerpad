@@ -227,6 +227,11 @@ or an AI agent work with your pages without signing in. Send it as an
 | `GET /api/pages/{id}/markdown` | Only the Markdown |
 | `POST /api/pages` | A new page from `{title?, markdown, parent_id or workspace, icon?}`. Without a title, the Markdown's leading `# Heading` becomes the title |
 | `POST /api/pages/{id}/append` | `{markdown}` added at the end of the page |
+| `PUT /api/pages/{id}/markdown` | `{markdown, title?}` replaces the page's content. Blocks that read the same are not touched, so they keep their colours and link cards |
+| `GET /api/pages/{id}/blocks` | The page's blocks with their ids, flat and in document order |
+| `POST /api/pages/{id}/blocks` | `{markdown}` added `after` or `before` a block, inside `parent_id`, or at the end |
+| `PATCH /api/blocks/{id}` | One block changed through `{text?, type?, props?}` or `{markdown}` |
+| `DELETE /api/blocks/{id}` | A block and what is nested in it |
 | `GET /api/files/{id}` | A file a page links to |
 
 ```bash
@@ -235,6 +240,13 @@ curl -H "Authorization: Bearer $MEERPAD_TOKEN" "https://meerpad.com/api/search?q
 curl -H "Authorization: Bearer $MEERPAD_TOKEN" -H "Content-Type: application/json" \
      -d '{"workspace": "Farm", "markdown": "# Shopping\n\n- [ ] Eggs"}' \
      https://meerpad.com/api/pages
+
+# Change a table. Find its id, then send the new rows
+curl -H "Authorization: Bearer $MEERPAD_TOKEN" "https://meerpad.com/api/pages/$PAGE/blocks"
+
+curl -X PATCH -H "Authorization: Bearer $MEERPAD_TOKEN" -H "Content-Type: application/json" \
+     -d '{"props": {"rows": [["Item", "Count"], ["Eggs", "12"]]}}' \
+     "https://meerpad.com/api/blocks/$BLOCK"
 ```
 
 Writes go through the same sync engine as the app, so your devices pick them up on their

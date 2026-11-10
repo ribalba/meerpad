@@ -53,6 +53,9 @@ class BlockNode:
     text: str = ""
     props: dict = field(default_factory=dict)
     children: list["BlockNode"] = field(default_factory=list)
+    # Where a stored block is (``block_tree``). The parser leaves them unset.
+    id: str | None = field(default=None, compare=False)
+    position: float = field(default=0.0, compare=False)
 
 
 LIST_TYPES = ("bulleted_list", "numbered_list", "to_do")
@@ -731,10 +734,15 @@ def blocks_to_markdown(nodes: list[BlockNode], titles: TitleLookup | None = None
     return "".join(parts) + "\n" if parts else ""
 
 
+def block_markdown(node: BlockNode, titles: TitleLookup | None = None) -> str:
+    """One block's own Markdown, without the blocks nested in it."""
+    return _render(BlockNode(node.type, node.text, node.props), 1, titles)
+
+
 # --- Exporting a page -------------------------------------------------------------
 
 
-def _tree(blocks: list[Block]) -> list[BlockNode]:
+def block_tree(blocks: list[Block]) -> list[BlockNode]:
     """Live blocks as trees, siblings by position. A block under a deleted or
     missing parent is hidden with it (as in the editor and app/render.py)."""
     live = {b.id: b for b in blocks if not b.deleted}
@@ -747,7 +755,8 @@ def _tree(blocks: list[Block]) -> list[BlockNode]:
         for b in sorted(kids.get(parent_id, []), key=lambda b: (b.position, b.created_at or 0, b.id)):
             if b.id in seen:
                 continue  # a corrupt cycle must not hang the export
-            out.append(BlockNode(b.type, b.text or "", dict(b.props or {}), build(b.id, seen | {b.id})))
+            out.append(BlockNode(b.type, b.text or "", dict(b.props or {}), build(b.id, seen | {b.id}),
+                                 id=b.id, position=b.position))
         return out
 
     return build(None, frozenset())
@@ -812,13 +821,9 @@ def _rows_table(db: DBSession, page: Page) -> str:
     return _table_md(table)
 
 
-def page_to_markdown(db: DBSession, page: Page) -> str:
-    """A stored page as one Markdown document: ``# Title``, its live blocks, and
-    for a database its rows as a pipe table. Files link to ``/api/files/<id>``,
-    other pages to ``/p/<id>``."""
-    blocks = db.scalars(select(Block).where(Block.page_id == page.id)).all()
-    nodes = _tree(list(blocks))
-
+def linked_titles(db: DBSession, owner_id: str, nodes: list[BlockNode]) -> dict[str, str]:
+    """The titles of the pages that the ``page`` and ``database`` blocks in
+    ``nodes`` link to, for ``blocks_to_markdown``."""
     ref_ids: set[str] = set()
 
     def collect(ns: list[BlockNode]) -> None:
@@ -834,11 +839,20 @@ def page_to_markdown(db: DBSession, page: Page) -> str:
             select(Page.id, Page.title, Page.owner_id, Page.deleted).where(Page.id.in_(ref_ids))
         ).all():
             # Never leak the title of somebody else's page through a stale link.
-            if owner == page.owner_id and not deleted:
+            if owner == owner_id and not deleted:
                 titles[pid] = title or "Untitled"
+    return titles
+
+
+def page_to_markdown(db: DBSession, page: Page) -> str:
+    """A stored page as one Markdown document: ``# Title``, its live blocks, and
+    for a database its rows as a pipe table. Files link to ``/api/files/<id>``,
+    other pages to ``/p/<id>``."""
+    blocks = db.scalars(select(Block).where(Block.page_id == page.id)).all()
+    nodes = block_tree(list(blocks))
 
     parts = [f"# {page.title or 'Untitled'}"]
-    body = blocks_to_markdown(nodes, titles.get).rstrip("\n")
+    body = blocks_to_markdown(nodes, linked_titles(db, page.owner_id, nodes).get).rstrip("\n")
     if body:
         parts.append(body)
     if page.kind == "database":
