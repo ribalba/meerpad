@@ -1,7 +1,7 @@
 # meerpad-server: the notes app, its sync API, and every published website,
 # in one process (app/main.py tells them apart by the Host header). The shape
 # is meerpic's; what it stores is meerato's: a database and a folder of files.
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ARG MEERPAD_VERSION=0.0.0
 
